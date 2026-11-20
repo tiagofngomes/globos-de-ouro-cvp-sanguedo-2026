@@ -1,0 +1,12 @@
+node_modules
+dist
+.env
+.env.local
+.env.*.local
+*.log
+.DS_Store
+supabase/.temp
+supabase/.branches
+# Listas reais de membros nunca devem ir para o repositório
+*membros*.csv
+*members*.csv

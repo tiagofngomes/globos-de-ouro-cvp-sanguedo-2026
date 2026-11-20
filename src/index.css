@@ -1,0 +1,124 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    color-scheme: dark;
+  }
+  html {
+    -webkit-tap-highlight-color: transparent;
+    scroll-behavior: smooth;
+  }
+  body {
+    @apply bg-gala-950 font-sans text-gold-50/90 antialiased;
+    min-height: 100dvh;
+    overflow-x: hidden;
+  }
+  ::selection {
+    background: rgba(227, 181, 58, 0.35);
+    color: #fff;
+  }
+  :focus-visible {
+    outline: 2px solid #ecc95a;
+    outline-offset: 3px;
+    border-radius: 6px;
+  }
+  /* 16px evita o zoom automático do iOS nos campos */
+  input,
+  select,
+  textarea {
+    font-size: 16px;
+  }
+}
+
+@layer components {
+  .text-gold {
+    background: linear-gradient(100deg, #8a611b 0%, #e3b53a 18%, #fdf8e8 32%, #ecc95a 46%, #b07f1f 62%, #f3dc8f 80%, #8a611b 100%);
+    background-size: 200% auto;
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
+  .text-gold-animated {
+    @apply text-gold animate-shimmer;
+  }
+  .gold-border {
+    position: relative;
+  }
+  .gold-border::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    padding: 1px;
+    background: linear-gradient(140deg, rgba(243, 220, 143, 0.75), rgba(138, 97, 27, 0.15) 35%, rgba(138, 97, 27, 0.1) 65%, rgba(243, 220, 143, 0.6));
+    -webkit-mask:
+      linear-gradient(#000 0 0) content-box,
+      linear-gradient(#000 0 0);
+    -webkit-mask-composite: xor;
+    mask-composite: exclude;
+    pointer-events: none;
+  }
+  .glass {
+    background: linear-gradient(160deg, rgba(36, 28, 18, 0.72), rgba(11, 9, 7, 0.82));
+    backdrop-filter: blur(14px);
+    -webkit-backdrop-filter: blur(14px);
+  }
+  .card-gala {
+    @apply glass gold-border rounded-3xl shadow-[0_30px_80px_-30px_rgba(0,0,0,.9)];
+  }
+  .btn {
+    @apply relative inline-flex select-none items-center justify-center gap-2 overflow-hidden rounded-full px-6 py-3 text-sm font-semibold uppercase tracking-[0.18em] transition duration-300 disabled:cursor-not-allowed disabled:opacity-40;
+  }
+  .btn-gold {
+    @apply btn text-gala-950 shadow-gold hover:shadow-gold-lg active:scale-[.98];
+    background: linear-gradient(120deg, #b07f1f, #ecc95a 30%, #fdf8e8 50%, #e3b53a 70%, #b07f1f);
+    background-size: 220% auto;
+    animation: shimmer 7s linear infinite;
+  }
+  .btn-ghost {
+    @apply btn border border-gold-400/30 bg-white/[.03] text-gold-100 hover:border-gold-300/70 hover:bg-gold-400/10 active:scale-[.98];
+  }
+  .btn-red {
+    @apply btn bg-cvp-500 text-white shadow-red-glow hover:bg-cvp-400 active:scale-[.98];
+  }
+  .btn-sm {
+    @apply px-4 py-2 text-[11px];
+  }
+  .input-gala {
+    @apply w-full rounded-2xl border border-gold-400/25 bg-black/40 px-5 py-4 text-gold-50 transition placeholder:text-gold-100/30 focus:border-gold-300/80 focus:bg-black/60 focus:outline-none focus:ring-4 focus:ring-gold-400/15;
+  }
+  .label-gala {
+    @apply mb-2 block text-[11px] font-semibold uppercase tracking-[0.25em] text-gold-300/80;
+  }
+  .eyebrow {
+    @apply text-[11px] font-semibold uppercase tracking-[0.35em] text-gold-300/80;
+  }
+  .divider-gold {
+    @apply h-px w-full;
+    background: linear-gradient(90deg, transparent, rgba(236, 201, 90, 0.55), transparent);
+  }
+}
+
+@layer utilities {
+  .safe-bottom {
+    padding-bottom: max(1rem, env(safe-area-inset-bottom));
+  }
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+  .no-scrollbar {
+    scrollbar-width: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}

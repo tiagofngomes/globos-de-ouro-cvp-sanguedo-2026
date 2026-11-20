@@ -1,0 +1,178 @@
+import { AlertTriangle, ArrowRight, CalendarClock, Eye, Tags, UserRound, Users, Vote } from 'lucide-react'
+import { useEffect, useState } from 'react'
+import { Link } from 'react-router-dom'
+import { useApi, usePath } from '../../api/ApiContext'
+import type { Category, ResultRow } from '../../api/types'
+import { AdminPageTitle, Panel, PhaseBadge, useAdmin } from '../../components/admin/AdminLayout'
+import { RingStat } from '../../components/charts/BarChart'
+import { CategoryMedallion } from '../../components/ui/CategoryIcon'
+import { FullPageLoader } from '../../components/ui/Feedback'
+import { Countdown } from '../../components/ui/Countdown'
+import { formatDateTime, pct } from '../../lib/format'
+
+export function DashboardPage() {
+  const { overview } = useAdmin()
+  const { api } = useApi()
+  const path = usePath()
+  const [categories, setCategories] = useState<Category[]>([])
+  const [leaders, setLeaders] = useState<ResultRow[]>([])
+
+  const livePhase = overview && (overview.phase === 'phase2' || overview.phase === 'awaiting_gala' || overview.phase === 'results') ? 2 : 1
+  const votersKey = overview ? overview.phase1_voters + overview.phase2_voters : 0
+
+  useEffect(() => {
+    api.admin
+      .listCategories()
+      .then(setCategories)
+      .catch(() => {})
+  }, [api])
+  useEffect(() => {
+    api.admin
+      .results(livePhase)
+      .then(setLeaders)
+      .catch(() => {})
+  }, [api, livePhase, votersKey])
+
+  if (!overview) return <FullPageLoader label="A carregar o painel…" />
+  const o = overview
+  const s = o.settings
+  const nextDeadline =
+    o.phase === 'pre_voting'
+      ? { label: 'Abertura das nomeações', at: s.phase1_opens_at }
+      : o.phase === 'phase1'
+        ? { label: 'Fecho das nomeações', at: s.phase1_closes_at }
+        : o.phase === 'counting'
+          ? { label: 'Abertura da final', at: s.phase2_opens_at }
+          : o.phase === 'phase2' && s.phase2_closes_at
+            ? { label: 'Fecho da final', at: s.phase2_closes_at }
+            : o.phase === 'awaiting_gala' && s.gala_at
+              ? { label: 'Gala', at: s.gala_at }
+              : null
+
+  return (
+    <div>
+      <AdminPageTitle title="Painel" subtitle="Acompanhamento em tempo real da votação" actions={<PhaseBadge phase={o.phase} />} />
+
+      {o.ties.length > 0 && !s.finalists_confirmed && (
+        <Link
+          to={path('/admin/finalistas')}
+          className="mb-5 flex items-center gap-3 rounded-2xl border border-cvp-500/50 bg-cvp-500/15 p-4 text-sm text-red-50 transition hover:bg-cvp-500/25"
+        >
+          <AlertTriangle className="h-5 w-5 shrink-0 text-cvp-400" />
+          <span className="flex-1">
+            <strong>Empate na última vaga da final</strong> em {o.ties.length} {o.ties.length === 1 ? 'categoria' : 'categorias'}. É necessário resolver antes
+            de abrir a Grande Final.
+          </span>
+          <ArrowRight className="h-4 w-4" />
+        </Link>
+      )}
+
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
+        <Panel>
+          <RingStat value={pct(o.phase1_voters, o.members_active)} label="Participação · Fase 1" sub={`${o.phase1_voters} de ${o.members_active} membros`} />
+        </Panel>
+        <Panel>
+          <RingStat value={pct(o.phase2_voters, o.members_active)} label="Participação · Final" sub={`${o.phase2_voters} de ${o.members_active} membros`} />
+        </Panel>
+        <Panel className="md:col-span-2 xl:col-span-1">
+          {nextDeadline ? (
+            <>
+              <div className="eyebrow mb-3 flex items-center gap-2">
+                <CalendarClock className="h-3.5 w-3.5" /> {nextDeadline.label}
+              </div>
+              <Countdown target={nextDeadline.at} size="md" />
+              <p className="mt-3 text-center text-xs text-gold-100/50">{formatDateTime(nextDeadline.at)}</p>
+            </>
+          ) : (
+            <p className="text-sm text-gold-100/60">Sem prazos pendentes. Defina as datas em “Datas e fases”.</p>
+          )}
+        </Panel>
+      </div>
+
+      <div className="mt-4 grid grid-cols-2 gap-3 lg:grid-cols-4">
+        <Stat
+          icon={Users}
+          label="Membros autorizados"
+          value={o.members_active}
+          sub={o.members_total !== o.members_active ? `${o.members_total} no total` : undefined}
+          to={path('/admin/membros')}
+        />
+        <Stat icon={UserRound} label="Candidatos ativos" value={o.candidates_active} to={path('/admin/candidatos')} />
+        <Stat icon={Tags} label="Categorias" value={o.categories_active} to={path('/admin/categorias')} />
+        <Stat
+          icon={Vote}
+          label="Finalistas"
+          value={o.finalists_count}
+          sub={s.finalists_confirmed ? 'confirmados' : 'por apurar'}
+          to={path('/admin/finalistas')}
+        />
+      </div>
+
+      <Panel
+        className="mt-4"
+        title={livePhase === 1 ? 'Líderes das nomeações' : 'Líderes da final'}
+        actions={
+          <Link to={path('/admin/resultados')} className="flex items-center gap-1 text-xs text-gold-300 hover:text-gold-100">
+            <Eye className="h-3.5 w-3.5" /> Ver tudo
+          </Link>
+        }
+      >
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
+          {categories
+            .filter((c) => c.active !== false)
+            .map((c) => {
+              const rows = leaders.filter((r) => r.category_id === c.id).sort((a, b) => b.votes - a.votes)
+              const top = rows[0]
+              const total = rows.reduce((a, r) => a + r.votes, 0)
+              return (
+                <div key={c.id} className="flex items-center gap-3 rounded-2xl border border-white/5 bg-white/[.02] p-3">
+                  <CategoryMedallion icon={c.icon} size="sm" />
+                  <div className="min-w-0 flex-1">
+                    <div className="truncate text-[11px] uppercase tracking-[0.12em] text-gold-300/70">{c.name}</div>
+                    <div className="truncate text-sm text-gold-50">
+                      {top && top.votes > 0 ? top.candidate_name : <span className="text-gold-100/35">Sem votos</span>}
+                    </div>
+                  </div>
+                  {top && top.votes > 0 && <div className="text-right text-xs tabular-nums text-gold-200">{Math.round(pct(top.votes, total))}%</div>}
+                </div>
+              )
+            })}
+        </div>
+      </Panel>
+
+      <Panel className="mt-4" title="Calendário">
+        <dl className="grid grid-cols-1 gap-3 text-sm sm:grid-cols-2 lg:grid-cols-3">
+          <DateItem label="Abertura das nomeações" value={s.phase1_opens_at} />
+          <DateItem label="Fecho das nomeações" value={s.phase1_closes_at} />
+          <DateItem label="Abertura da final" value={s.phase2_opens_at} />
+          <DateItem label="Fecho da final" value={s.phase2_closes_at} empty="A definir" />
+          <DateItem label="Gala" value={s.gala_at} empty="A definir" />
+          <div className="rounded-xl border border-white/5 p-3">
+            <dt className="text-[11px] uppercase tracking-[0.15em] text-gold-300/60">Resultados</dt>
+            <dd className="mt-1 text-gold-50">{s.results_published ? 'Publicados' : 'Privados'}</dd>
+          </div>
+        </dl>
+      </Panel>
+    </div>
+  )
+}
+
+function Stat({ icon: Icon, label, value, sub, to }: { icon: typeof Users; label: string; value: number; sub?: string; to: string }) {
+  return (
+    <Link to={to} className="card-gala block p-4 transition hover:shadow-gold">
+      <Icon className="h-5 w-5 text-gold-400" />
+      <div className="mt-3 font-display text-3xl text-gold-50">{value}</div>
+      <div className="text-[11px] uppercase tracking-[0.12em] text-gold-100/55">{label}</div>
+      {sub && <div className="mt-0.5 text-[11px] text-gold-100/35">{sub}</div>}
+    </Link>
+  )
+}
+
+function DateItem({ label, value, empty = '—' }: { label: string; value: string | null; empty?: string }) {
+  return (
+    <div className="rounded-xl border border-white/5 p-3">
+      <dt className="text-[11px] uppercase tracking-[0.15em] text-gold-300/60">{label}</dt>
+      <dd className="mt-1 text-gold-50">{value ? formatDateTime(value) : <span className="text-gold-100/40">{empty}</span>}</dd>
+    </div>
+  )
+}
