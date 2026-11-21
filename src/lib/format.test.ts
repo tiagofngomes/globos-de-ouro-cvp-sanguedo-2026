@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { isGalaDayReached, lisbonDay } from './format'
+import { formatDateRange, isGalaDayReached, lisbonDay } from './format'
 
 describe('Modo Gala disponível a partir do dia da gala', () => {
   // gala marcada para 30/12/2026 às 22h00 (Lisboa, inverno = UTC+0)
@@ -28,4 +28,13 @@ describe('Modo Gala disponível a partir do dia da gala', () => {
     expect(isGalaDayReached(summer, at('2026-07-09T22:59:00Z'))).toBe(false) // 23h59 de 09/07 em Lisboa
     expect(isGalaDayReached(summer, at('2026-07-09T23:05:00Z'))).toBe(true) // 00h05 de 10/07 em Lisboa
   })
+})
+
+describe('período das fases', () => {
+  it('mesmo mês', () => expect(formatDateRange('2026-11-10T00:00:00Z', '2026-11-19T23:59:59Z')).toBe('De 10 a 19 de novembro de 2026'))
+  it('meses diferentes', () => expect(formatDateRange('2026-11-25T00:00:00Z', '2026-12-03T23:59:59Z')).toBe('De 25 de novembro a 3 de dezembro de 2026'))
+  it('anos diferentes', () => expect(formatDateRange('2026-12-28T00:00:00Z', '2027-01-04T23:59:59Z')).toBe('De 28 de dezembro de 2026 a 4 de janeiro de 2027'))
+  it('sem data de fecho', () => expect(formatDateRange('2026-11-11T00:00:00Z', null)).toBe('A partir de 11 de novembro de 2026'))
+  it('usa o dia de Lisboa (23h59 não passa para o dia seguinte)', () =>
+    expect(formatDateRange('2026-07-01T00:00:00+01:00', '2026-07-10T23:59:59+01:00')).toBe('De 1 a 10 de julho de 2026'))
 })

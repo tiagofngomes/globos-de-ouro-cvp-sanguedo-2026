@@ -94,3 +94,23 @@ export function initials(name: string): string {
 export function plural(n: number, one: string, many: string): string {
   return `${n.toLocaleString('pt-PT')} ${n === 1 ? one : many}`
 }
+
+/**
+ * Período entre duas datas (hora de Lisboa), sem repetir mês e ano quando são iguais:
+ * "De 10 a 19 de novembro de 2026", "De 25 de novembro a 3 de dezembro de 2026",
+ * "De 28 de dezembro de 2026 a 4 de janeiro de 2027". Sem fim: "A partir de …".
+ */
+export function formatDateRange(fromIso: string, toIso: string | null | undefined): string {
+  const parts = (iso: string) => {
+    const p = new Intl.DateTimeFormat('pt-PT', { timeZone: TZ, day: 'numeric', month: 'long', year: 'numeric' }).formatToParts(new Date(iso))
+    const get = (t: string) => p.find((x) => x.type === t)?.value ?? ''
+    return { d: get('day'), m: get('month'), y: get('year') }
+  }
+  const a = parts(fromIso)
+  if (!toIso) return `A partir de ${a.d} de ${a.m} de ${a.y}`
+  const b = parts(toIso)
+  if (a.y !== b.y) return `De ${a.d} de ${a.m} de ${a.y} a ${b.d} de ${b.m} de ${b.y}`
+  if (a.m !== b.m) return `De ${a.d} de ${a.m} a ${b.d} de ${b.m} de ${b.y}`
+  if (a.d !== b.d) return `De ${a.d} a ${b.d} de ${b.m} de ${b.y}`
+  return `${a.d} de ${a.m} de ${a.y}`
+}

@@ -8,7 +8,7 @@ import { Countdown } from '../components/ui/Countdown'
 import { FullPageLoader } from '../components/ui/Feedback'
 import { Trophy } from '../components/ui/Trophy'
 import { usePublicState } from '../hooks/usePublicState'
-import { formatDate, formatDateTime, isGalaDayReached } from '../lib/format'
+import { formatDate, formatDateRange, formatDateTime, isGalaDayReached } from '../lib/format'
 import { cn } from '../lib/cn'
 
 const fadeUp = {
@@ -139,20 +139,30 @@ function Timeline({ state, offset }: { state: PublicState; offset: number }) {
   const order = ['pre_voting', 'phase1', 'counting', 'phase2', 'awaiting_gala', 'results']
   const idx = order.indexOf(state.phase === 'paused' ? 'phase1' : state.phase)
   const steps = [
-    { icon: MousePointerClick, title: '1ª fase', text: `Até ${formatDateTime(state.phase1_closes_at)}`, active: idx === 1, done: idx > 1 },
+    {
+      icon: MousePointerClick,
+      title: '1ª fase',
+      text: formatDateRange(state.phase1_opens_at, state.phase1_closes_at),
+      active: idx === 1,
+      done: idx > 1,
+      soon: false,
+    },
     {
       icon: TrophyIcon,
       title: '2ª fase',
-      text: `A partir de ${formatDateTime(state.phase2_opens_at)}`,
+      text: formatDateRange(state.phase2_opens_at, state.phase2_closes_at),
       active: idx === 2 || idx === 3,
       done: idx > 3,
+      soon: false,
     },
     {
       icon: PartyPopper,
       title: 'Gala',
       text: state.gala_at ? formatDate(state.gala_at) : 'Data a anunciar',
-      active: idx >= 4 || galaOpen,
+      // "A decorrer" só no dia da gala (e daí em diante); antes disso, depois das votações, "Brevemente"
+      active: galaOpen,
       done: false,
+      soon: !galaOpen && idx >= 4,
       to: galaOpen ? path('/gala') : undefined,
     },
   ]
@@ -167,12 +177,16 @@ function Timeline({ state, offset }: { state: PublicState; offset: number }) {
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true, margin: '-40px' }}
             transition={{ delay: i * 0.12, duration: 0.6 }}
-            className={cn('card-gala flex items-center gap-4 p-5 sm:flex-col sm:text-center', s.active && 'shadow-gold-lg')}
+            className={cn('card-gala flex items-center gap-4 p-5 sm:flex-col sm:text-center', (s.active || s.soon) && 'shadow-gold-lg')}
           >
             <div
               className={cn(
                 'grid h-12 w-12 shrink-0 place-items-center rounded-full border',
-                s.active ? 'border-gold-300 bg-gold-400/20 text-gold-100' : s.done ? 'border-gold-600/50 text-gold-500' : 'border-white/10 text-gold-100/40',
+                s.active || s.soon
+                  ? 'border-gold-300 bg-gold-400/20 text-gold-100'
+                  : s.done
+                    ? 'border-gold-600/50 text-gold-500'
+                    : 'border-white/10 text-gold-100/40',
               )}
             >
               <s.icon className="h-5 w-5" />
@@ -182,6 +196,11 @@ function Timeline({ state, offset }: { state: PublicState; offset: number }) {
                 <span className="font-display text-lg text-gold-100">{s.title}</span>
                 {s.active && <span className="rounded-full bg-cvp-500 px-2 py-0.5 text-[9px] font-bold uppercase tracking-widest text-white">A decorrer</span>}
                 {s.done && <span className="text-[10px] uppercase tracking-widest text-gold-500">Concluído</span>}
+                {s.soon && (
+                  <span className="rounded-full border border-gold-400/50 px-2 py-0.5 text-[9px] font-bold uppercase tracking-widest text-gold-200">
+                    Brevemente
+                  </span>
+                )}
               </div>
               <p className="mt-1 text-xs text-gold-100/55">{s.text}</p>
               {'to' in s && s.to && (
