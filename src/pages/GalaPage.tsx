@@ -543,7 +543,7 @@ function FinaleSlide({ shows }: { shows: CategoryShow[] }) {
             <div className="min-w-0">
               <div className="line-clamp-2 text-[length:min(1.1vw,1.9vh)] uppercase leading-snug tracking-[0.15em] text-gold-300/70">{s.category.name}</div>
               <div className="font-display text-[length:min(2.4vw,4vh)] leading-tight text-gold-50">
-                {s.winners.map((w) => w.candidate_name).join(' & ') || '—'}
+                {s.winners.map((w) => w.candidate_name).join(' & ') || 'Sem votos'}
               </div>
             </div>
           </motion.div>

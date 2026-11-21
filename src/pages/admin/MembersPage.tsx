@@ -78,7 +78,7 @@ export function MembersPage() {
       <div className="mb-4 flex items-start gap-3 rounded-2xl border border-gold-400/20 bg-gold-400/5 p-4 text-xs leading-relaxed text-gold-100/70">
         <ShieldAlert className="h-4 w-4 shrink-0 text-gold-400" />
         <p>
-          Por respeito ao anonimato, esta lista não mostra quem já votou — apenas os totais no painel. Um membro que já votou não pode ser apagado (apenas
+          Por respeito ao anonimato, esta lista não mostra quem já votou, apenas os totais no painel. Um membro que já votou não pode ser apagado (apenas
           desativado). O PIN é opcional: se definido, passa a ser pedido ao votar.
         </p>
       </div>

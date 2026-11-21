@@ -23,11 +23,11 @@ type Session = Extract<VotingSession, { ok: true }>
 type Step = 'access' | 'ballot' | 'review' | 'done' | 'already'
 
 const SUBMIT_ERRORS: Record<SubmitError, string> = {
-  session_expired: 'A sua sessão expirou por inatividade. Introduza novamente o número de membro — as suas escolhas foram guardadas.',
+  session_expired: 'A sua sessão expirou por inatividade. Introduza novamente o número de membro. As suas escolhas foram guardadas.',
   voting_closed: 'A votação encerrou entretanto. Infelizmente o voto já não pôde ser registado.',
   invalid_ballot: 'Há uma escolha inválida. Reveja as categorias e tente novamente.',
   already_voted: 'Este número de membro já votou nesta fase.',
-  network: 'Não foi possível contactar o servidor. Verifique a internet e tente novamente — o voto ainda não foi registado.',
+  network: 'Não foi possível contactar o servidor. Verifique a internet e tente novamente. O voto ainda não foi registado.',
 }
 
 export function VotePage() {

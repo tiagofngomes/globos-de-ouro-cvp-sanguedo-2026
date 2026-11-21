@@ -92,7 +92,7 @@ export function ResultsAdminPage() {
 
       <p className="mb-5 flex items-start gap-2 text-xs text-gold-100/45">
         <Lock className="mt-0.5 h-3.5 w-3.5 shrink-0" />
-        Os votos são guardados apenas como totais por candidato — não é possível saber em quem cada membro votou.
+        Os votos são guardados apenas como totais por candidato. Não é possível saber em quem cada membro votou.
       </p>
 
       <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">

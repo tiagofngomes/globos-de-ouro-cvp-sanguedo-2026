@@ -168,7 +168,7 @@ function Stat({ icon: Icon, label, value, sub, to }: { icon: typeof Users; label
   )
 }
 
-function DateItem({ label, value, empty = '—' }: { label: string; value: string | null; empty?: string }) {
+function DateItem({ label, value, empty = 'Por definir' }: { label: string; value: string | null; empty?: string }) {
   return (
     <div className="rounded-xl border border-white/5 p-3">
       <dt className="text-[11px] uppercase tracking-[0.15em] text-gold-300/60">{label}</dt>

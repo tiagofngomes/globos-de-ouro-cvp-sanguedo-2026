@@ -182,7 +182,7 @@ export const DEMO_HINT = `Na demonstração, use um número de membro entre ${DE
 
 const delay = (ms = 350) => new Promise((r) => setTimeout(r, ms + Math.random() * 200))
 const activeCategories = () => state.categories.filter((c) => c.active !== false).sort((a, b) => a.sort_order - b.sort_order)
-const candidateName = (id: string) => state.candidates.find((c) => c.id === id)?.name ?? '—'
+const candidateName = (id: string) => state.candidates.find((c) => c.id === id)?.name ?? 'Desconhecido'
 
 function hasPhase2Votes() {
   return Object.keys(state.tallies).some((k) => k.startsWith('2|'))

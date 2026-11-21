@@ -143,7 +143,7 @@ export function CandidatesPage() {
         }}
         title="Importar candidatos"
         mode="names"
-        hint="Um nome por linha (de um ficheiro CSV é usada a primeira coluna). Nomes repetidos — mesmo com acentos ou maiúsculas diferentes — são ignorados."
+        hint="Um nome por linha (de um ficheiro CSV é usada a primeira coluna). Nomes repetidos (mesmo com acentos ou maiúsculas diferentes) são ignorados."
         onImport={(items) => api.admin.importCandidates(items)}
       />
     </div>

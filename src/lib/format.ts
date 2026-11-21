@@ -1,7 +1,7 @@
 const TZ = 'Europe/Lisbon'
 
 export function formatDateTime(iso: string | null | undefined): string {
-  if (!iso) return '—'
+  if (!iso) return 'Por definir'
   const d = new Date(iso)
   const date = new Intl.DateTimeFormat('pt-PT', { timeZone: TZ, day: 'numeric', month: 'long', year: 'numeric' }).format(d)
   const time = new Intl.DateTimeFormat('pt-PT', { timeZone: TZ, hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }).format(d).replace(':', 'h')
@@ -22,7 +22,7 @@ export function isGalaDayReached(galaAt: string | null | undefined, nowMs: numbe
 }
 
 export function formatShortDate(iso: string | null | undefined): string {
-  if (!iso) return '—'
+  if (!iso) return 'Por definir'
   return new Intl.DateTimeFormat('pt-PT', { timeZone: TZ, day: 'numeric', month: 'short' }).format(new Date(iso))
 }
 

@@ -235,7 +235,6 @@ function HowItWorks() {
       icon: Lock,
       title: 'Voto fechado',
       text: 'Depois de submeter, os votos já não podem ser alterados e o seu número fica desativado até à Grande Final (fase 2), onde volta a votar.',
-      warn: true,
     },
   ]
   return (
@@ -243,10 +242,7 @@ function HowItWorks() {
       <SectionTitle eyebrow="Como votar" title="Simples, rápido e secreto" />
       <div className="mx-auto mt-8 grid max-w-4xl grid-cols-1 gap-4 sm:grid-cols-2">
         {items.map((it, i) => (
-          <div
-            key={it.title}
-            className={cn('flex gap-4 rounded-2xl border p-5', 'warn' in it ? 'border-gold-400/30 bg-gold-400/[.05]' : 'border-white/5 bg-white/[.02]')}
-          >
+          <div key={it.title} className="flex gap-4 rounded-2xl border border-white/5 bg-white/[.02] p-5">
             <div className="font-display text-3xl text-gold-500/60">{i + 1}</div>
             <div>
               <div className="flex items-center gap-2 font-semibold text-gold-100">
@@ -260,7 +256,7 @@ function HowItWorks() {
       <div className="mx-auto mt-12 flex max-w-2xl items-start gap-3 rounded-2xl border border-l-2 border-white/10 border-l-cvp-500/70 bg-white/[.03] p-5 text-sm text-gold-50/70">
         <EyeOff className="mt-0.5 h-4 w-4 shrink-0 text-gold-300" />
         <p>
-          <strong className="text-gold-50">O seu voto é anónimo.</strong> O sistema regista apenas que o seu número já votou — nunca em quem votou. Nem os
+          <strong className="text-gold-50">O seu voto é anónimo.</strong> O sistema regista apenas que o seu número já votou, nunca em quem votou. Nem os
           administradores conseguem ver as escolhas de cada pessoa.
         </p>
       </div>
