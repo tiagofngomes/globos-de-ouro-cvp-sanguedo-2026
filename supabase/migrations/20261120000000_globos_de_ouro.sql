@@ -934,10 +934,10 @@ revoke execute on function public.results_visible(integer) from public, anon, au
 -- -----------------------------------------------------------------------------
 
 insert into public.categories (slug, name, description, icon, sort_order) values
-  ('revelacao',     'Prémio Revelação do Ano',           'Para quem chegou e brilhou: o elemento que mais surpreendeu pela positiva este ano.',                       'sparkles', 1),
-  ('carreira',      'Prémio de Carreira',                'Uma vida de dedicação à causa. Reconhece o percurso, a experiência e o exemplo que inspira gerações.',      'award',    2),
-  ('eficiencia',    'Prémio de Eficiência',              'Rigor, rapidez e competência. Para quem resolve com calma o que parece impossível.',                       'zap',      3),
-  ('inovacao',      'Prémio de Inovação e Criatividade', 'Ideias novas, soluções inesperadas. Para quem pensa fora da caixa e torna a delegação melhor.',          'lightbulb',4),
-  ('voluntariado',  'Prémio Espírito de Voluntariado',   'Humanidade em ação. Para quem encarna os valores da Cruz Vermelha em cada gesto.',                         'heart',    5),
-  ('dedicacao',     'Prémio de Dedicação',               'Sempre presente, sempre disponível. Para quem nunca falta quando é preciso.',                              'medal',    6)
+  ('revelacao', 'Prémio Revelação do Ano', 'Reconhecer e valorizar novos talentos que se destacaram pelo seu desempenho este ano.', 'sparkles', 1),
+  ('inovacao', 'Prémio de Inovação e Criatividade', 'Reconhecer e valorizar a originalidade, a criatividade e a capacidade de inovar.', 'lightbulb', 2),
+  ('carreira', 'Prémio de Carreira', 'Homenagear e valorizar um percurso de voluntariado, reconhecendo a dedicação e o legado ao longo dos anos.', 'award', 3),
+  ('eficiencia', 'Prémio de Eficiência', 'Reconhecer e valorizar quem contribui para a melhoria contínua, transformando desafios em resultados concretos.', 'zap', 4),
+  ('voluntariado', 'Prémio Espírito de Voluntariado', 'Reconhecer e valorizar a dedicação, o altruísmo e o espírito solidário de quem está sempre disponível para ajudar, cumprindo os Princípios Fundamentais da Cruz Vermelha.', 'heart', 5),
+  ('dedicacao', 'Prémio de Dedicação', 'Homenagear e valorizar a dedicação, a lealdade e o contributo de quem veste a camisola.', 'medal', 6)
 on conflict (slug) do nothing;

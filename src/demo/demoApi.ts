@@ -19,7 +19,7 @@ import type {
 } from '../api/types'
 import { DEMO_CANDIDATES, DEMO_CATEGORIES } from './data'
 
-const STORAGE_KEY = 'globos-cvp-demo-v2'
+const STORAGE_KEY = 'globos-cvp-demo-v3'
 const DEMO_MEMBER_RANGE = { from: 1001, to: 1100 }
 
 interface DemoState {
