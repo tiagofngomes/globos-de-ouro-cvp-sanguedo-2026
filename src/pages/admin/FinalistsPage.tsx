@@ -57,8 +57,15 @@ export function FinalistsPage() {
 
   const auto = async () => {
     setBusy(true)
-    const r = await api.admin.autoFinalize()
-    setBusy(false)
+    let r: Awaited<ReturnType<typeof api.admin.autoFinalize>>
+    try {
+      r = await api.admin.autoFinalize()
+    } catch (e) {
+      toast((e as Error).message || 'Não foi possível contactar o servidor.', 'error')
+      return
+    } finally {
+      setBusy(false)
+    }
     if (r.confirmed) toast('Finalistas apurados e confirmados automaticamente.')
     else if (r.ties.length) toast('Existem empates por resolver. Escolha manualmente nas categorias assinaladas.', 'error')
     else if (r.reason === 'phase1_open') toast('A 1ª fase ainda está aberta.', 'error')
@@ -81,8 +88,14 @@ export function FinalistsPage() {
     )
       return
     setBusy(true)
-    const r = await api.admin.setFinalists(selection)
-    setBusy(false)
+    let r: { ok: boolean; error?: string }
+    try {
+      r = await api.admin.setFinalists(selection)
+    } catch (e) {
+      r = { ok: false, error: (e as Error).message }
+    } finally {
+      setBusy(false)
+    }
     if (r.ok) toast('Finalistas confirmados! A 2ª fase abre na data definida.')
     else toast(r.error ?? 'Erro ao confirmar.', 'error')
     await reload()

@@ -54,10 +54,30 @@ function friendly(error: PostgrestError | Error | null): string {
   return msg || 'Ocorreu um erro.'
 }
 
+/** Sessão de administrador expirada (o painel esteve aberto muito tempo). */
+function isExpiredSession(error: PostgrestError | null): boolean {
+  if (!error) return false
+  return error.code === 'PGRST301' || error.code === 'PGRST303' || /jwt|token/i.test(error.message ?? '')
+}
+
 async function rpc<T>(fn: string, args?: Record<string, unknown>): Promise<T> {
-  const { data, error } = await sb().rpc(fn, args)
-  if (error) throw new Error(friendly(error))
+  let { data, error } = await sb().rpc(fn, args)
+  // sessão expirada: renova e tenta outra vez, sem o administrador dar por nada
+  if (isExpiredSession(error)) {
+    const refreshed = await sb().auth.refreshSession()
+    if (!refreshed.error) ({ data, error } = await sb().rpc(fn, args))
+  }
+  if (error) throw new Error(isExpiredSession(error) ? 'A sessão expirou. Saia do painel e volte a entrar.' : friendly(error))
   return data as T
+}
+
+/** Para ações que devolvem { ok, error }: um erro de rede ou de sessão vira uma mensagem, nunca uma exceção. */
+async function rpcOp(fn: string, args?: Record<string, unknown>): Promise<OpResult> {
+  try {
+    return await rpc<OpResult>(fn, args)
+  } catch (e) {
+    return { ok: false, error: (e as Error).message || 'Não foi possível contactar o servidor. Tente novamente.' }
+  }
 }
 
 function op(error: PostgrestError | null): OpResult {
@@ -113,8 +133,8 @@ export function createSupabaseApi(): VotingApi {
       results: (phase) => rpc<ResultRow[]>('admin_results', { p_phase: phase }),
       finalistProposal: () => rpc<ProposalRow[]>('admin_finalist_proposal'),
       autoFinalize: () => rpc('admin_auto_finalize'),
-      setFinalists: (selection) => rpc<OpResult>('admin_set_finalists', { p_selection: selection }),
-      resetFinalists: () => rpc<OpResult>('admin_reset_finalists'),
+      setFinalists: (selection) => rpcOp('admin_set_finalists', { p_selection: selection }),
+      resetFinalists: () => rpcOp('admin_reset_finalists'),
       async updateSettings(patch: Partial<EventSettings>) {
         const { error } = await sb()
           .from('event_settings')

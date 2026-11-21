@@ -356,26 +356,36 @@ function CategorySlide({ show, index, total }: { show: CategoryShow; index: numb
 }
 
 function NomineesSlide({ show }: { show: CategoryShow }) {
+  const n = show.nominees.length
+  // até 5 nomeados fica como sempre; com mais, cartões e letras encolhem para caberem todos numa fila
+  const dense = n > 5
+  const cardStyle = dense ? { width: `min(30vh, calc((94vw - ${(n - 1) * 1.6}vw) / ${n}))` } : undefined
+  const avatar = dense ? `min(9vw, 16vh, ${(50 / n).toFixed(2)}vw)` : undefined
+  const avatarStyle = dense ? { width: avatar, height: avatar, fontSize: `min(3vw, 5.2vh, ${(17 / n).toFixed(2)}vw)` } : undefined
+  const nameStyle = dense ? { fontSize: `min(2.4vw, 4vh, ${(13 / n).toFixed(2)}vw)` } : undefined
   return (
     <div className="w-full max-w-[94vw] text-center">
       <div className="eyebrow text-[length:min(1.8vw,2.8vh)]">{show.category.name}</div>
       <h2 className="mt-[1.5vh] font-display text-[length:min(5.5vw,9vh)] text-gold-50">Os nomeados são…</h2>
-      <div className="mt-[6vh] flex flex-wrap justify-center gap-[1.6vw]">
+      <div className={cn('mt-[6vh] flex justify-center gap-[1.6vw]', dense ? 'flex-nowrap' : 'flex-wrap')}>
         {show.nominees.map((n, k) => (
           <motion.div
             key={n.candidate_id}
             initial={{ opacity: 0, y: 40, rotateX: -60 }}
             animate={{ opacity: 1, y: 0, rotateX: 0 }}
             transition={{ delay: 0.5 + k * 0.55, duration: 0.8, ease }}
-            className="card-gala flex w-[min(16vw,30vh)] flex-col items-center gap-[2vh] p-[min(1.6vw,2.8vh)]"
+            className="card-gala flex w-[min(16vw,30vh)] min-w-0 flex-col items-center gap-[2vh] p-[min(1.6vw,2.8vh)]"
+            style={cardStyle}
           >
             <span
-              className="grid h-[min(9vw,16vh)] w-[min(9vw,16vh)] place-items-center rounded-full font-display text-[length:min(3vw,5.2vh)] font-semibold text-gala-900"
-              style={{ background: 'linear-gradient(135deg,#fdf8e8,#e3b53a 50%,#8a611b)' }}
+              className="grid h-[min(9vw,16vh)] w-[min(9vw,16vh)] shrink-0 place-items-center rounded-full font-display text-[length:min(3vw,5.2vh)] font-semibold text-gala-900"
+              style={{ background: 'linear-gradient(135deg,#fdf8e8,#e3b53a 50%,#8a611b)', ...avatarStyle }}
             >
               {initials(n.candidate_name)}
             </span>
-            <span className="font-display text-[length:min(2.4vw,4vh)] leading-tight text-gold-50">{n.candidate_name}</span>
+            <span className="font-display text-[length:min(2.4vw,4vh)] leading-tight text-gold-50 [overflow-wrap:anywhere]" style={nameStyle}>
+              {n.candidate_name}
+            </span>
           </motion.div>
         ))}
       </div>
@@ -434,6 +444,9 @@ function RaceSlide({ show, sound, onDone }: { show: CategoryShow; sound: boolean
   }, [])
 
   const isWinner = (r: ResultRow) => settled && show.winners.some((w) => w.candidate_id === r.candidate_id)
+  const many = nominees.length > 5
+  const pctStyle = many ? { fontSize: `min(3.4vw, 6vh, ${(20 / nominees.length).toFixed(2)}vw)` } : undefined
+  const nameStyle = many ? { fontSize: `min(1.8vw, 3.1vh, ${(8 / nominees.length).toFixed(2)}vw)` } : undefined
 
   return (
     <div className="flex h-full w-full max-w-[94vw] flex-col gap-[2vh] text-center md:flex-row md:items-stretch md:gap-[3vw] md:text-left">
@@ -475,6 +488,7 @@ function RaceSlide({ show, sound, onDone }: { show: CategoryShow; sound: boolean
                           'font-display text-[length:min(3.4vw,6vh)] font-bold tabular-nums leading-none',
                           win ? 'text-gold-100' : 'text-gold-50/50',
                         )}
+                        style={pctStyle}
                       >
                         {formatPct(pct(r.votes, show.total))}
                       </div>
@@ -515,9 +529,10 @@ function RaceSlide({ show, sound, onDone }: { show: CategoryShow; sound: boolean
                 <div className="mt-[1.5vh] h-[12vh] w-full shrink-0">
                   <span
                     className={cn(
-                      'line-clamp-3 font-display text-[length:min(1.8vw,3.1vh)] leading-[1.1] transition-colors duration-700',
+                      'line-clamp-3 font-display text-[length:min(1.8vw,3.1vh)] leading-[1.1] transition-colors duration-700 [overflow-wrap:anywhere]',
                       win ? 'text-gold-100' : lose ? 'text-gold-50/40' : 'text-gold-50',
                     )}
+                    style={nameStyle}
                   >
                     {r.candidate_name}
                   </span>
