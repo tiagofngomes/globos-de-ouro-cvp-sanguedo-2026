@@ -6,7 +6,7 @@ import { useApi, usePath } from '../api/ApiContext'
 import type { Category, ResultRow } from '../api/types'
 import { GalaBackground } from '../components/layout/GalaBackground'
 import { CategoryMedallion } from '../components/ui/CategoryIcon'
-import { CvpBrand, CvpRibbon } from '../components/ui/CvpBrand'
+import { CvpBrand } from '../components/ui/CvpBrand'
 import { FullPageLoader } from '../components/ui/Feedback'
 import { Trophy } from '../components/ui/Trophy'
 import { celebrate } from '../lib/celebrate'
@@ -254,9 +254,15 @@ const ease = [0.22, 1, 0.36, 1] as const
 function IntroSlide() {
   return (
     <div className="text-center">
-      <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }}>
-        <CvpRibbon>Cruz Vermelha Portuguesa · Delegação de Sanguedo</CvpRibbon>
-      </motion.div>
+      {/* abertura discreta, como no início de um filme (igual à página inicial) */}
+      <motion.p
+        initial={{ opacity: 0, y: -10 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.2, duration: 1 }}
+        className="font-serif text-[length:min(2.6vw,4.2vh)] italic tracking-wide text-gold-200/80"
+      >
+        A Delegação de Sanguedo apresenta
+      </motion.p>
       <motion.div initial={{ scale: 0.5, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} transition={{ duration: 1.4, ease }} className="my-[3vh]">
         <Trophy className="mx-auto h-[42vh] w-[28vh] animate-float" />
       </motion.div>

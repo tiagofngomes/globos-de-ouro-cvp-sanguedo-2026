@@ -5,7 +5,6 @@ import { usePath } from '../api/ApiContext'
 import type { Category, PublicState } from '../api/types'
 import { CategoryMedallion } from '../components/ui/CategoryIcon'
 import { Countdown } from '../components/ui/Countdown'
-import { CvpRibbon } from '../components/ui/CvpBrand'
 import { FullPageLoader } from '../components/ui/Feedback'
 import { Trophy } from '../components/ui/Trophy'
 import { usePublicState } from '../hooks/usePublicState'
@@ -81,9 +80,10 @@ function Hero({ state, offset, onPhaseChange }: { state: PublicState; offset: nu
 
   return (
     <section className="relative flex flex-col items-center pt-6 text-center sm:pt-10">
-      <motion.div variants={fadeUp} initial="hidden" animate="show" custom={0}>
-        <CvpRibbon>Delegação de Sanguedo apresenta</CvpRibbon>
-      </motion.div>
+      {/* abertura discreta, como no início de um filme */}
+      <motion.p variants={fadeUp} initial="hidden" animate="show" custom={0} className="font-serif text-base italic tracking-wide text-gold-200/80 sm:text-lg">
+        A Delegação de Sanguedo apresenta
+      </motion.p>
 
       <motion.div
         initial={{ opacity: 0, scale: 0.7, y: 30 }}
