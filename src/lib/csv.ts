@@ -36,3 +36,20 @@ export function parseList(text: string, mode: 'numbers' | 'names'): string[] {
   }
   return out.map((s) => s.replace(/^\s*"|"\s*$/g, '').trim()).filter(Boolean)
 }
+
+/**
+ * Lê o conteúdo de um ficheiro de texto/CSV com a codificação certa. O Excel em
+ * português grava muitas vezes em "ANSI" (Windows-1252) em vez de UTF-8; ler
+ * esses ficheiros como UTF-8 estraga acentos e cedilhas ("C�tia" em vez de
+ * "Cátia"). Tenta UTF-8 (e UTF-16 com marca) e, se não for válido, usa Windows-1252.
+ */
+export function decodeText(buffer: ArrayBuffer): string {
+  const bytes = new Uint8Array(buffer)
+  if (bytes[0] === 0xff && bytes[1] === 0xfe) return new TextDecoder('utf-16le').decode(bytes.subarray(2))
+  if (bytes[0] === 0xfe && bytes[1] === 0xff) return new TextDecoder('utf-16be').decode(bytes.subarray(2))
+  try {
+    return new TextDecoder('utf-8', { fatal: true }).decode(bytes).replace(/^\uFEFF/, '')
+  } catch {
+    return new TextDecoder('windows-1252').decode(bytes)
+  }
+}

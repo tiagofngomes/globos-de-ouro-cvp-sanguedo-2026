@@ -1,7 +1,7 @@
 import { FileUp, Upload } from 'lucide-react'
 import { useRef, useState } from 'react'
 import type { ImportResult } from '../../api/types'
-import { parseList } from '../../lib/csv'
+import { decodeText, parseList } from '../../lib/csv'
 import { Modal, Spinner, useToast } from '../ui/Feedback'
 
 /** Importação por colagem ou ficheiro CSV/TXT, com pré-visualização. */
@@ -28,7 +28,9 @@ export function ImportBox({
 
   const onFile = async (f: File | undefined) => {
     if (!f) return
-    setText(await f.text())
+    setText(decodeText(await f.arrayBuffer()))
+    // permite voltar a escolher o mesmo ficheiro depois de o corrigir
+    if (fileRef.current) fileRef.current.value = ''
   }
 
   const run = async () => {
