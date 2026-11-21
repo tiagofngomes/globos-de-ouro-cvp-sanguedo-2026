@@ -125,6 +125,10 @@ body.calm-bg [data-gala-bg] .animate-rise {
 body.calm-bg [data-gala-bg] .animate-twinkle {
   opacity: 0.3;
 }
+/* e só 15 das 40 estrelas (menos trabalho a desenhar no telemóvel) */
+body.calm-bg [data-gala-bg] .animate-twinkle:nth-of-type(n + 16) {
+  display: none;
+}
 
 @media (prefers-reduced-motion: reduce) {
   *,

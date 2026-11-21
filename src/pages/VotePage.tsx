@@ -149,10 +149,11 @@ export function VotePage() {
         <motion.section
           key={category.id}
           custom={direction}
-          initial={{ opacity: 0, x: direction * 60 }}
-          animate={{ opacity: 1, x: 0 }}
-          exit={{ opacity: 0, x: direction * -60 }}
-          transition={{ duration: 0.35, ease: [0.22, 1, 0.36, 1] }}
+          // passagem simples entre categorias: só desvanece (mais leve no telemóvel)
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          transition={{ duration: 0.18, ease: 'easeOut' }}
           className="mt-8"
         >
           <CategoryHeader category={category} index={index} phase={session.phase} />
