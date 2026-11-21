@@ -216,12 +216,15 @@ export function CandidateAutocomplete({ candidates, value, onChange, categoryNam
 }
 
 /**
- * No telemóvel, desliza a página para o elemento ficar perto do topo (abaixo do
- * cabeçalho). Repete enquanto o teclado abre, porque o telemóvel pode
- * reposicionar a página nesse momento.
+ * Desliza a página para o elemento ficar perto do topo (abaixo do cabeçalho),
+ * para a lista que abre por baixo ficar à vista. Repete durante uns instantes,
+ * porque a lista demora a abrir e, no telemóvel, o teclado pode reposicionar a
+ * página. No computador só desliza se o campo estiver demasiado em baixo no ecrã.
  */
 function bringToTop(el: HTMLElement | null) {
-  if (!el || window.innerWidth >= 640) return
+  if (!el) return
+  const phone = window.innerWidth < 640
+  if (!phone && el.getBoundingClientRect().top < window.innerHeight * 0.3) return
   const go = () => {
     const y = el.getBoundingClientRect().top + window.scrollY - 96
     if (Math.abs(window.scrollY - y) > 8) window.scrollTo({ top: Math.max(0, y), behavior: 'smooth' })
