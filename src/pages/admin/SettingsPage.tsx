@@ -9,13 +9,13 @@ import { isoToLisbonInput, lisbonInputToIso } from '../../lib/format'
 type DateKey = 'phase1_opens_at' | 'phase1_closes_at' | 'phase2_opens_at' | 'phase2_closes_at' | 'gala_at'
 
 const DATE_FIELDS: Array<{ key: DateKey; label: string; help: string; optional?: boolean; endOfMinute?: boolean }> = [
-  { key: 'phase1_opens_at', label: 'Abertura das nomeações', help: 'Início da 1.ª fase.' },
-  { key: 'phase1_closes_at', label: 'Fecho das nomeações', help: 'Inclui o minuto indicado (ex.: 23h59 fecha às 23:59:59).', endOfMinute: true },
-  { key: 'phase2_opens_at', label: 'Abertura da Grande Final', help: 'Os finalistas são apurados automaticamente nesta hora, se não houver empates.' },
+  { key: 'phase1_opens_at', label: 'Abertura da 1ª fase', help: 'Início da votação.' },
+  { key: 'phase1_closes_at', label: 'Fecho da 1ª fase', help: 'Inclui o minuto indicado (ex.: 23h59 fecha às 23:59:59).', endOfMinute: true },
+  { key: 'phase2_opens_at', label: 'Abertura da 2ª fase', help: 'Os finalistas são apurados automaticamente nesta hora, se não houver empates.' },
   {
     key: 'phase2_closes_at',
-    label: 'Fecho da Grande Final',
-    help: 'Opcional. Sem data, a final fica aberta até a encerrar manualmente.',
+    label: 'Fecho da 2ª fase',
+    help: 'Opcional. Sem data, a 2ª fase fica aberta até a encerrar manualmente.',
     optional: true,
     endOfMinute: true,
   },
@@ -65,8 +65,8 @@ export function SettingsPage() {
       if (!iso && !f.optional) return toast(`Preencha: ${f.label}.`, 'error')
       ;(patch as Record<string, unknown>)[f.key] = iso
     }
-    if (new Date(patch.phase1_closes_at!) <= new Date(patch.phase1_opens_at!)) return toast('O fecho das nomeações tem de ser depois da abertura.', 'error')
-    if (new Date(patch.phase2_opens_at!) < new Date(patch.phase1_closes_at!)) return toast('A final não pode abrir antes do fecho das nomeações.', 'error')
+    if (new Date(patch.phase1_closes_at!) <= new Date(patch.phase1_opens_at!)) return toast('O fecho da 1ª fase tem de ser depois da abertura.', 'error')
+    if (new Date(patch.phase2_opens_at!) < new Date(patch.phase1_closes_at!)) return toast('A 2ª fase não pode abrir antes do fecho da 1ª fase.', 'error')
     setSaving(true)
     await update(patch, 'Datas guardadas.')
     setSaving(false)
@@ -75,18 +75,18 @@ export function SettingsPage() {
   const now = new Date().toISOString()
   const closeNow = async () => {
     if (overview.phase === 'phase1') {
-      if (!window.confirm('Encerrar AGORA a fase de nomeações?')) return
-      await update({ phase1_closes_at: now }, 'Nomeações encerradas.')
+      if (!window.confirm('Encerrar AGORA a 1ª fase?')) return
+      await update({ phase1_closes_at: now }, '1ª fase encerrada.')
     } else if (overview.phase === 'phase2') {
-      if (!window.confirm('Encerrar AGORA a Grande Final?')) return
-      await update({ phase2_closes_at: now }, 'Grande Final encerrada.')
+      if (!window.confirm('Encerrar AGORA a 2ª fase?')) return
+      await update({ phase2_closes_at: now }, '2ª fase encerrada.')
     }
     setForm(null)
   }
 
   const resetVotes = async (phase: 1 | 2) => {
     if (resetText !== 'APAGAR') return toast('Escreva APAGAR para confirmar.', 'error')
-    if (!window.confirm(`Apagar TODOS os votos da ${phase === 1 ? 'fase de nomeações' : 'Grande Final'}? Esta ação é irreversível.`)) return
+    if (!window.confirm(`Apagar TODOS os votos da ${phase === 1 ? '1ª fase' : '2ª fase'}? Esta ação é irreversível.`)) return
     const r = await api.admin.resetVotes(phase, resetText)
     toast(r.ok ? 'Votos apagados.' : (r.error ?? 'Erro'), r.ok ? 'success' : 'error')
     setResetText('')
@@ -172,10 +172,10 @@ export function SettingsPage() {
             <input value={resetText} onChange={(e) => setResetText(e.target.value)} placeholder="APAGAR" className="input-gala py-2.5 text-sm" />
             <div className="mt-3 grid grid-cols-2 gap-2">
               <button onClick={() => resetVotes(1)} disabled={resetText !== 'APAGAR'} className="btn-ghost btn-sm border-cvp-500/40">
-                Votos fase 1
+                Votos da 1ª fase
               </button>
               <button onClick={() => resetVotes(2)} disabled={resetText !== 'APAGAR'} className="btn-ghost btn-sm border-cvp-500/40">
-                Votos final
+                Votos da 2ª fase
               </button>
             </div>
           </Panel>

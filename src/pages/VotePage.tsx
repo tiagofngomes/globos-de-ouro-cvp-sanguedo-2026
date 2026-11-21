@@ -196,7 +196,7 @@ function CategoryHeader({ category, index, phase }: { category: Category; index:
       <div className="pointer-events-none absolute inset-x-0 -top-24 mx-auto h-48 w-48 rounded-full bg-gold-400/20 blur-3xl" />
       <div className="pointer-events-none absolute right-4 top-3 font-display text-6xl font-bold text-gold-400/[.07]">{String(index + 1).padStart(2, '0')}</div>
       <CategoryMedallion icon={category.icon} size={compact ? 'md' : 'lg'} className="mx-auto" />
-      <div className={cn('eyebrow', compact ? 'mt-3' : 'mt-5')}>{phase === 'phase1' ? 'Nomeação' : 'Grande Final'}</div>
+      <div className={cn('eyebrow', compact ? 'mt-3' : 'mt-5')}>{phase === 'phase1' ? '1ª fase' : '2ª fase'}</div>
       <h2 className="mt-2 font-display text-2xl leading-tight text-gold-50 sm:text-3xl">{category.name}</h2>
       <p className={cn('mx-auto mt-3 max-w-md text-sm leading-relaxed text-gold-50/60', compact && 'line-clamp-2 sm:line-clamp-none')}>
         {category.description}
@@ -223,8 +223,8 @@ function ThankYou({ phase, phase2OpensAt }: { phase: 'phase1' | 'phase2'; phase2
         <h1 className="text-gold-animated mt-3 font-display text-4xl sm:text-5xl">Obrigado!</h1>
         <p className="mt-4 text-sm leading-relaxed text-gold-50/70">
           {phase === 'phase1'
-            ? `As suas nomeações foram registadas com sucesso. Os cinco mais votados de cada categoria seguem para a Grande Final, que abre a ${formatDateTime(phase2OpensAt)}.`
-            : 'O seu voto na Grande Final foi registado com sucesso. Os vencedores serão revelados na noite da gala!'}
+            ? `Os seus votos da 1ª fase foram registados com sucesso. Os cinco mais votados de cada categoria seguem para a 2ª fase, que abre a ${formatDateTime(phase2OpensAt)}.`
+            : 'O seu voto na 2ª fase foi registado com sucesso. Os vencedores serão revelados na noite da gala!'}
         </p>
         <p className="mt-3 text-xs text-gold-100/40">O seu voto é anónimo: não fica associado ao seu número de membro.</p>
         <Link to={path('/')} className="btn-ghost mt-8">

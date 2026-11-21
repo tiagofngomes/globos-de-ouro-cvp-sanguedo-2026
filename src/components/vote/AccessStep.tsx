@@ -55,7 +55,7 @@ export function AccessStep({ phase, notice, onSession, onAlreadyVoted }: Props) 
       className="mx-auto mt-6 max-w-md sm:mt-12"
     >
       <div className="text-center">
-        <div className="eyebrow">{phase === 'phase1' ? 'Fase 1 · Nomeações' : 'Fase 2 · Grande Final'}</div>
+        <div className="eyebrow">{phase === 'phase1' ? '1ª fase' : '2ª fase'}</div>
         <h1 className="mt-3 font-display text-3xl text-gold-50 sm:text-4xl">
           O seu <span className="text-gold-animated">convite</span>
         </h1>

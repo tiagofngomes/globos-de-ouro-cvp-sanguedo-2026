@@ -42,10 +42,10 @@ function Hero({ state, offset, onPhaseChange }: { state: PublicState; offset: nu
   const status = (() => {
     switch (s.phase) {
       case 'pre_voting':
-        return { label: 'As nomeações da 1.ª fase abrem em', target: s.phase1_opens_at, cta: null, note: formatDateTime(s.phase1_opens_at) }
+        return { label: 'As nomeações da 1ª fase abrem em', target: s.phase1_opens_at, cta: null, note: formatDateTime(s.phase1_opens_at) }
       case 'phase1':
         return {
-          label: 'As nomeações da 1.ª fase encerram em',
+          label: 'As nomeações da 1ª fase encerram em',
           target: s.phase1_closes_at,
           cta: { to: path('/votar'), text: 'Votar agora' },
           note: `até ${formatDateTime(s.phase1_closes_at)}`,
@@ -54,16 +54,16 @@ function Hero({ state, offset, onPhaseChange }: { state: PublicState; offset: nu
         return { label: 'Votação temporariamente suspensa', target: null, cta: null, note: 'Volte a tentar dentro de momentos.' }
       case 'counting':
         return {
-          label: new Date(s.phase2_opens_at).getTime() > Date.now() + offset ? 'A Grande Final (2.ª fase) abre em' : 'A apurar os finalistas',
+          label: new Date(s.phase2_opens_at).getTime() > Date.now() + offset ? 'A 2ª fase abre em' : 'A apurar os finalistas',
           target: new Date(s.phase2_opens_at).getTime() > Date.now() + offset ? s.phase2_opens_at : null,
           cta: null,
-          note: 'Os cinco mais votados de cada categoria seguem para a final.',
+          note: 'Os cinco mais votados de cada categoria seguem para a 2ª fase.',
         }
       case 'phase2':
         return {
-          label: s.phase2_closes_at ? 'A Grande Final (2.ª fase) encerra em' : 'A Grande Final (2.ª fase) está a decorrer',
+          label: s.phase2_closes_at ? 'A 2ª fase encerra em' : 'A 2ª fase está a decorrer',
           target: s.phase2_closes_at,
-          cta: { to: path('/votar'), text: 'Votar na final' },
+          cta: { to: path('/votar'), text: 'Votar na 2ª fase' },
           note: s.phase2_closes_at ? `até ${formatDateTime(s.phase2_closes_at)}` : 'Vote apenas nos finalistas de cada categoria.',
         }
       case 'awaiting_gala':
@@ -137,10 +137,10 @@ function Timeline({ state, offset }: { state: PublicState; offset: number }) {
   const order = ['pre_voting', 'phase1', 'counting', 'phase2', 'awaiting_gala', 'results']
   const idx = order.indexOf(state.phase === 'paused' ? 'phase1' : state.phase)
   const steps = [
-    { icon: MousePointerClick, title: 'Nomeações', text: `Até ${formatDateTime(state.phase1_closes_at)}`, active: idx === 1, done: idx > 1 },
+    { icon: MousePointerClick, title: '1ª fase', text: `Até ${formatDateTime(state.phase1_closes_at)}`, active: idx === 1, done: idx > 1 },
     {
       icon: TrophyIcon,
-      title: 'Grande Final',
+      title: '2ª fase',
       text: `A partir de ${formatDateTime(state.phase2_opens_at)}`,
       active: idx === 2 || idx === 3,
       done: idx > 3,
@@ -235,7 +235,7 @@ function HowItWorks() {
     {
       icon: Lock,
       title: 'Voto fechado',
-      text: 'Depois de submeter, os votos já não podem ser alterados e o seu número fica desativado até à Grande Final (fase 2), onde volta a votar.',
+      text: 'Depois de submeter, os votos já não podem ser alterados e o seu número fica desativado até à 2ª fase, onde volta a votar.',
     },
   ]
   return (

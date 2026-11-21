@@ -403,7 +403,7 @@ export function createDemoApi(): VotingApi {
 
       async setFinalists(selection) {
         await delay(300)
-        if (hasPhase2Votes()) return { ok: false, error: 'A final já tem votos: não é possível alterar os finalistas.' }
+        if (hasPhase2Votes()) return { ok: false, error: 'A 2ª fase já tem votos: não é possível alterar os finalistas.' }
         if (activeCategories().some((c) => !(selection[c.id]?.length > 0))) {
           return { ok: false, error: 'Todas as categorias ativas precisam de pelo menos um finalista.' }
         }
@@ -415,7 +415,7 @@ export function createDemoApi(): VotingApi {
       },
 
       async resetFinalists() {
-        if (hasPhase2Votes()) return { ok: false, error: 'A final já tem votos: não é possível repor os finalistas.' }
+        if (hasPhase2Votes()) return { ok: false, error: 'A 2ª fase já tem votos: não é possível repor os finalistas.' }
         state.finalists = {}
         state.settings.finalists_confirmed = false
         state.settings.finalists_confirmed_at = null

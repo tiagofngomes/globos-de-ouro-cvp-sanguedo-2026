@@ -176,7 +176,7 @@ export function GalaPage() {
       </div>
       {preview && (
         <div className="absolute right-6 top-5 z-10 rounded-full border border-cvp-500/50 bg-cvp-500/15 px-3 py-1 text-[11px] uppercase tracking-[0.2em] text-red-100">
-          Ensaio · dados das nomeações
+          Ensaio · dados da 1ª fase
         </div>
       )}
 

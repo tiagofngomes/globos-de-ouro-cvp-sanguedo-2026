@@ -38,13 +38,13 @@ export function DashboardPage() {
   const s = o.settings
   const nextDeadline =
     o.phase === 'pre_voting'
-      ? { label: 'Abertura das nomeações', at: s.phase1_opens_at }
+      ? { label: 'Abertura da 1ª fase', at: s.phase1_opens_at }
       : o.phase === 'phase1'
-        ? { label: 'Fecho das nomeações', at: s.phase1_closes_at }
+        ? { label: 'Fecho da 1ª fase', at: s.phase1_closes_at }
         : o.phase === 'counting'
-          ? { label: 'Abertura da final', at: s.phase2_opens_at }
+          ? { label: 'Abertura da 2ª fase', at: s.phase2_opens_at }
           : o.phase === 'phase2' && s.phase2_closes_at
-            ? { label: 'Fecho da final', at: s.phase2_closes_at }
+            ? { label: 'Fecho da 2ª fase', at: s.phase2_closes_at }
             : o.phase === 'awaiting_gala' && s.gala_at
               ? { label: 'Gala', at: s.gala_at }
               : null
@@ -60,8 +60,8 @@ export function DashboardPage() {
         >
           <AlertTriangle className="h-5 w-5 shrink-0 text-cvp-400" />
           <span className="flex-1">
-            <strong>Empate na última vaga da final</strong> em {o.ties.length} {o.ties.length === 1 ? 'categoria' : 'categorias'}. É necessário resolver antes
-            de abrir a Grande Final.
+            <strong>Empate na última vaga da 2ª fase</strong> em {o.ties.length} {o.ties.length === 1 ? 'categoria' : 'categorias'}. É necessário resolver antes
+            de abrir a 2ª fase.
           </span>
           <ArrowRight className="h-4 w-4" />
         </Link>
@@ -69,10 +69,10 @@ export function DashboardPage() {
 
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
         <Panel>
-          <RingStat value={pct(o.phase1_voters, o.members_active)} label="Participação · Fase 1" sub={`${o.phase1_voters} de ${o.members_active} membros`} />
+          <RingStat value={pct(o.phase1_voters, o.members_active)} label="Participação · 1ª fase" sub={`${o.phase1_voters} de ${o.members_active} membros`} />
         </Panel>
         <Panel>
-          <RingStat value={pct(o.phase2_voters, o.members_active)} label="Participação · Final" sub={`${o.phase2_voters} de ${o.members_active} membros`} />
+          <RingStat value={pct(o.phase2_voters, o.members_active)} label="Participação · 2ª fase" sub={`${o.phase2_voters} de ${o.members_active} membros`} />
         </Panel>
         <Panel className="md:col-span-2 xl:col-span-1">
           {nextDeadline ? (
@@ -110,7 +110,7 @@ export function DashboardPage() {
 
       <Panel
         className="mt-4"
-        title={livePhase === 1 ? 'Líderes das nomeações' : 'Líderes da final'}
+        title={livePhase === 1 ? 'Líderes da 1ª fase' : 'Líderes da 2ª fase'}
         actions={
           <Link to={path('/admin/resultados')} className="flex items-center gap-1 text-xs text-gold-300 hover:text-gold-100">
             <Eye className="h-3.5 w-3.5" /> Ver tudo
@@ -142,10 +142,10 @@ export function DashboardPage() {
 
       <Panel className="mt-4" title="Calendário">
         <dl className="grid grid-cols-1 gap-3 text-sm sm:grid-cols-2 lg:grid-cols-3">
-          <DateItem label="Abertura das nomeações" value={s.phase1_opens_at} />
-          <DateItem label="Fecho das nomeações" value={s.phase1_closes_at} />
-          <DateItem label="Abertura da final" value={s.phase2_opens_at} />
-          <DateItem label="Fecho da final" value={s.phase2_closes_at} empty="A definir" />
+          <DateItem label="Abertura da 1ª fase" value={s.phase1_opens_at} />
+          <DateItem label="Fecho da 1ª fase" value={s.phase1_closes_at} />
+          <DateItem label="Abertura da 2ª fase" value={s.phase2_opens_at} />
+          <DateItem label="Fecho da 2ª fase" value={s.phase2_closes_at} empty="A definir" />
           <DateItem label="Gala" value={s.gala_at} empty="A definir" />
           <div className="rounded-xl border border-white/5 p-3">
             <dt className="text-[11px] uppercase tracking-[0.15em] text-gold-300/60">Resultados</dt>

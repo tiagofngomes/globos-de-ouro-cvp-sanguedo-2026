@@ -8,7 +8,7 @@ import { CategoryMedallion } from '../../components/ui/CategoryIcon'
 import { FullPageLoader } from '../../components/ui/Feedback'
 import { cn } from '../../lib/cn'
 import { downloadFile, toCsv } from '../../lib/csv'
-import { formatPct, pct } from '../../lib/format'
+import { formatPct, pct, plural } from '../../lib/format'
 
 export function ResultsAdminPage() {
   const { api } = useApi()
@@ -55,10 +55,10 @@ export function ResultsAdminPage() {
               : proposal.find((p) => p.category_id === c.id && p.candidate_id === r.candidate_id)?.status === 'tied'
                 ? 'Empatado'
                 : ''
-        out.push([phase === 1 ? 'Nomeações' : 'Final', c.name, i + 1, r.candidate_name, r.votes, formatPct(pct(r.votes, total)), status])
+        out.push([phase === 1 ? '1ª fase' : '2ª fase', c.name, i + 1, r.candidate_name, r.votes, formatPct(pct(r.votes, total)), status])
       })
     }
-    downloadFile(`globos-de-ouro-${phase === 1 ? 'nomeacoes' : 'final'}-${new Date().toISOString().slice(0, 10)}.csv`, toCsv(out))
+    downloadFile(`globos-de-ouro-${phase === 1 ? '1a-fase' : '2a-fase'}-${new Date().toISOString().slice(0, 10)}.csv`, toCsv(out))
   }
 
   if (!categories) return <FullPageLoader />
@@ -85,7 +85,7 @@ export function ResultsAdminPage() {
               phase === p ? 'bg-gold-400 text-gala-900' : 'text-gold-100/60 hover:text-gold-100',
             )}
           >
-            {p === 1 ? 'Nomeações' : 'Grande Final'}
+            {p === 1 ? '1ª fase' : '2ª fase'}
           </button>
         ))}
       </div>
@@ -113,7 +113,7 @@ export function ResultsAdminPage() {
       </div>
 
       <div className="mt-6 flex flex-wrap gap-4 text-xs text-gold-100/50">
-        <Legend className="bg-gradient-to-r from-gold-700 to-gold-300" label={phase === 1 ? 'Passa à final' : 'Finalista'} />
+        <Legend className="bg-gradient-to-r from-gold-700 to-gold-300" label={phase === 1 ? 'Passa à 2ª fase' : 'Finalista'} />
         {phase === 2 && <Legend className="bg-gradient-to-r from-gold-600 to-gold-50" label="Vencedor" />}
         {phase === 1 && <Legend className="bg-gradient-to-r from-cvp-700 to-cvp-400" label="Empate na última vaga" />}
       </div>
@@ -132,7 +132,7 @@ function CategoryResults({ category, data, total, cutoff }: { category: Category
           <span className="leading-tight">{category.name}</span>
         </span>
       }
-      actions={<span className="shrink-0 text-xs tabular-nums text-gold-100/50">{total} votos</span>}
+      actions={<span className="shrink-0 text-xs tabular-nums text-gold-100/50">{plural(total, 'voto', 'votos')}</span>}
     >
       <BarChart
         data={data}

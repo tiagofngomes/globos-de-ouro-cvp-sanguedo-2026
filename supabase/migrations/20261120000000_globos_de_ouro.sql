@@ -701,10 +701,10 @@ declare
 begin
   perform public.assert_admin();
   if now() <= (select phase1_closes_at from public.event_settings where id) then
-    return jsonb_build_object('ok', false, 'error', 'A fase de nomeações ainda está aberta.');
+    return jsonb_build_object('ok', false, 'error', 'A 1ª fase ainda está aberta.');
   end if;
   if exists (select 1 from public.vote_participation where phase = 2) then
-    return jsonb_build_object('ok', false, 'error', 'A final já tem votos: não é possível alterar os finalistas.');
+    return jsonb_build_object('ok', false, 'error', 'A 2ª fase já tem votos: não é possível alterar os finalistas.');
   end if;
 
   select count(*) into v_missing from public.categories c
@@ -738,7 +738,7 @@ as $$
 begin
   perform public.assert_admin();
   if exists (select 1 from public.vote_participation where phase = 2) then
-    return jsonb_build_object('ok', false, 'error', 'A final já tem votos: não é possível repor os finalistas.');
+    return jsonb_build_object('ok', false, 'error', 'A 2ª fase já tem votos: não é possível repor os finalistas.');
   end if;
   delete from public.finalists;
   update public.event_settings set finalists_confirmed = false, finalists_confirmed_at = null, updated_at = now() where id;

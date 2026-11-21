@@ -6,7 +6,7 @@ import { AdminPageTitle, Panel, useAdmin } from '../../components/admin/AdminLay
 import { CategoryMedallion } from '../../components/ui/CategoryIcon'
 import { FullPageLoader, Spinner, useToast } from '../../components/ui/Feedback'
 import { cn } from '../../lib/cn'
-import { formatDateTime } from '../../lib/format'
+import { formatDateTime, plural } from '../../lib/format'
 
 /**
  * Apuramento dos finalistas. O sistema propõe automaticamente os N mais
@@ -59,7 +59,7 @@ export function FinalistsPage() {
     setBusy(false)
     if (r.confirmed) toast('Finalistas apurados e confirmados automaticamente.')
     else if (r.ties.length) toast('Existem empates por resolver. Escolha manualmente nas categorias assinaladas.', 'error')
-    else if (r.reason === 'phase1_open') toast('A 1.ª fase ainda está aberta.', 'error')
+    else if (r.reason === 'phase1_open') toast('A 1ª fase ainda está aberta.', 'error')
     await reload()
     await load()
   }
@@ -73,7 +73,7 @@ export function FinalistsPage() {
     setBusy(true)
     const r = await api.admin.setFinalists(selection)
     setBusy(false)
-    if (r.ok) toast('Finalistas confirmados! A Grande Final abre na data definida.')
+    if (r.ok) toast('Finalistas confirmados! A 2ª fase abre na data definida.')
     else toast(r.error ?? 'Erro ao confirmar.', 'error')
     await reload()
   }
@@ -125,7 +125,7 @@ export function FinalistsPage() {
     <div>
       <AdminPageTitle
         title="Apuramento dos finalistas"
-        subtitle={`Os ${n} mais votados de cada categoria passam à Grande Final.`}
+        subtitle={`Os ${n} mais votados de cada categoria passam à 2ª fase.`}
         actions={
           <>
             <button onClick={auto} disabled={busy || phase1Open} className="btn-ghost btn-sm">
@@ -139,8 +139,8 @@ export function FinalistsPage() {
       />
       {phase1Open && (
         <p className="mb-5 rounded-2xl border border-gold-400/20 bg-gold-400/5 p-4 text-sm text-gold-100/70">
-          A fase de nomeações ainda está a decorrer. Esta é uma pré-visualização: o apuramento só pode ser confirmado depois do fecho. Se não houver empates, a
-          final abre sozinha na data marcada.
+          A 1ª fase ainda está a decorrer. Esta é uma pré-visualização: o apuramento só pode ser confirmado depois do fecho. Se não houver empates, a 2ª fase
+          abre sozinha na data marcada.
         </p>
       )}
 
@@ -163,7 +163,7 @@ export function FinalistsPage() {
               {hasTie && (
                 <p className="mb-3 flex items-start gap-2 rounded-xl bg-cvp-500/15 p-3 text-xs text-red-100">
                   <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-cvp-400" />
-                  Empate na última vaga. Selecione quem passa à final (pode incluir todos os empatados).
+                  Empate na última vaga. Selecione quem passa à 2ª fase (pode incluir todos os empatados).
                 </p>
               )}
               {list.length === 0 && <p className="text-sm text-gold-100/40">Sem votos nesta categoria.</p>}
@@ -183,7 +183,7 @@ export function FinalistsPage() {
                         <span className="w-5 text-right font-display text-xs text-gold-400/60">{p.rank_pos}</span>
                         <span className="flex-1 truncate">{p.candidate_name}</span>
                         {p.status === 'tied' && <span className="rounded-full bg-cvp-500/20 px-2 py-0.5 text-[10px] uppercase text-cvp-400">empate</span>}
-                        <span className="text-xs tabular-nums text-gold-100/60">{p.votes} votos</span>
+                        <span className="text-xs tabular-nums text-gold-100/60">{plural(p.votes, 'voto', 'votos')}</span>
                       </label>
                     </li>
                   )
