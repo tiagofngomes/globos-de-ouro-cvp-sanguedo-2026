@@ -364,7 +364,7 @@ begin
     return jsonb_build_object('confirmed', false, 'ties', tied);
   end if;
 
-  delete from public.finalists;
+  delete from public.finalists where true; -- "where" obrigatório no Supabase (safeupdate)
   insert into public.finalists (category_id, candidate_id, phase1_votes)
   select p.category_id, p.candidate_id, p.votes from public.finalist_proposal() p where p.status = 'qualified';
 
@@ -801,7 +801,7 @@ begin
     return jsonb_build_object('ok', false, 'error', 'Todas as categorias ativas precisam de pelo menos um finalista.');
   end if;
 
-  delete from public.finalists;
+  delete from public.finalists where true; -- "where" obrigatório no Supabase (safeupdate)
   for k in select c.id from public.categories c where c.active loop
     insert into public.finalists (category_id, candidate_id, phase1_votes)
     select k.id, x.value::uuid, coalesce((select t.votes from public.vote_tallies t
@@ -828,7 +828,7 @@ begin
   if exists (select 1 from public.vote_participation where phase = 2) then
     return jsonb_build_object('ok', false, 'error', 'A 2ª fase já tem votos: não é possível repor os finalistas.');
   end if;
-  delete from public.finalists;
+  delete from public.finalists where true; -- "where" obrigatório no Supabase (safeupdate)
   update public.event_settings set finalists_confirmed = false, finalists_confirmed_at = null, updated_at = now() where id;
   return jsonb_build_object('ok', true);
 end

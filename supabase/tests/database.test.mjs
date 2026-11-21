@@ -40,6 +40,22 @@ await db.exec(`
   create function auth.uid() returns uuid language sql stable as $$ select nullif(current_setting('request.jwt.claim.sub', true), '')::uuid $$;
   grant execute on function auth.uid() to anon, authenticated;
 `)
+// O Supabase recusa (extensão safeupdate) DELETE/UPDATE sem WHERE em pedidos vindos do site.
+// O PGlite não tem essa proteção, por isso verifica-se no próprio SQL.
+{
+  // cada instrução (separada por ";") que começa por DELETE ou UPDATE tem de ter WHERE
+  const statements = migration
+    .replace(/--[^\n]*/g, '')
+    .split(';')
+    .map((st) =>
+      st
+        .split(/\b(?:begin|then|loop|else)\b/i)
+        .pop()
+        .trim(),
+    )
+  const unsafe = statements.filter((st) => /^(delete\s+from|update)\s/i.test(st) && !/\bwhere\b/i.test(st))
+  ok(unsafe.length === 0, `nenhum DELETE/UPDATE sem WHERE na migração${unsafe.length ? ': ' + unsafe.map((u) => u.slice(0, 60)).join(' | ') : ''}`)
+}
 await db.exec(migration)
 await db.exec(seed)
 ok(true, 'migração e seed aplicados')

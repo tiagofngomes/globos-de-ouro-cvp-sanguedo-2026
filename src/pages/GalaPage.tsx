@@ -446,7 +446,12 @@ function RaceSlide({ show, sound, onDone }: { show: CategoryShow; sound: boolean
   const isWinner = (r: ResultRow) => settled && show.winners.some((w) => w.candidate_id === r.candidate_id)
   const many = nominees.length > 5
   const pctStyle = many ? { fontSize: `min(3.4vw, 6vh, ${(20 / nominees.length).toFixed(2)}vw)` } : undefined
-  const nameStyle = many ? { fontSize: `min(1.8vw, 3.1vh, ${(8 / nominees.length).toFixed(2)}vw)` } : undefined
+  const nameBase = many ? `min(1.8vw, 3.1vh, ${(8 / nominees.length).toFixed(2)}vw)` : 'min(1.8vw, 3.1vh)'
+  // nomes compridos ficam com letra um pouco mais pequena, para caberem sem cortar
+  const nameStyle = (name: string) => {
+    const k = name.length > 30 ? 0.72 : name.length > 20 ? 0.85 : 1
+    return { fontSize: k === 1 ? nameBase : `calc(${nameBase} * ${k})` }
+  }
 
   return (
     <div className="flex h-full w-full max-w-[94vw] flex-col gap-[2vh] text-center md:flex-row md:items-stretch md:gap-[3vw] md:text-left">
@@ -479,7 +484,7 @@ function RaceSlide({ show, sound, onDone }: { show: CategoryShow; sound: boolean
             return (
               <div key={r.candidate_id} className="flex min-w-0 max-w-[min(13vw,26vh)] flex-1 flex-col items-center text-center">
                 {/* valor por cima da barra: "?" enquanto brinca, valores reais no fim */}
-                <div className="flex h-[12vh] shrink-0 flex-col items-center justify-end">
+                <div className="flex h-[15vh] shrink-0 flex-col items-center justify-end">
                   {settled ? (
                     <motion.div initial={{ opacity: 0, y: 10, scale: 0.8 }} animate={{ opacity: 1, y: 0, scale: 1 }} transition={{ delay: 0.25 }}>
                       {win && <Crown className="mx-auto h-[min(3.4vw,5.5vh)] w-[min(3.4vw,5.5vh)] text-gold-300 drop-shadow-[0_0_18px_rgba(236,201,90,.9)]" />}
@@ -529,10 +534,10 @@ function RaceSlide({ show, sound, onDone }: { show: CategoryShow; sound: boolean
                 <div className="mt-[1.5vh] h-[12vh] w-full shrink-0">
                   <span
                     className={cn(
-                      'line-clamp-3 font-display text-[length:min(1.8vw,3.1vh)] leading-[1.1] transition-colors duration-700 [overflow-wrap:anywhere]',
+                      'line-clamp-4 font-display leading-[1.1] transition-colors duration-700 [hyphens:auto] [overflow-wrap:break-word]',
                       win ? 'text-gold-100' : lose ? 'text-gold-50/40' : 'text-gold-50',
                     )}
-                    style={nameStyle}
+                    style={nameStyle(r.candidate_name)}
                   >
                     {r.candidate_name}
                   </span>
