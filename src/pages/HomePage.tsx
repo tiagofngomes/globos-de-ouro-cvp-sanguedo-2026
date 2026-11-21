@@ -117,7 +117,7 @@ function Hero({ state, offset, onPhaseChange }: { state: PublicState; offset: nu
         {status.target && <Countdown target={status.target} offset={offset} onDone={onPhaseChange} />}
         {status.note && <p className="mt-4 text-xs text-gold-100/50">{status.note}</p>}
         {status.cta && (
-          <Link to={status.cta.to} className="btn-gold mt-8 w-full max-w-xs py-4 text-sm sm:w-auto sm:px-10">
+          <Link to={status.cta.to} className="btn-gold mt-16 w-full max-w-xs py-4 text-sm sm:mt-24 sm:w-auto sm:px-10">
             <Vote className="h-5 w-5" />
             {status.cta.text}
             <ArrowRight className="h-4 w-4" />
