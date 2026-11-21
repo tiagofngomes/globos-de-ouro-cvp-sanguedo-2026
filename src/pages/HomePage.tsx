@@ -108,7 +108,8 @@ function Hero({ state, offset, onPhaseChange }: { state: PublicState; offset: nu
       </motion.div>
 
       <motion.p variants={fadeUp} initial="hidden" animate="show" custom={3} className="mt-5 max-w-md text-sm leading-relaxed text-gold-50/70 sm:text-base">
-        Uma noite para celebrar quem faz da nossa delegação um exemplo de humanidade. Escolha os colegas que mais brilharam este ano.
+        Uma noite para celebrar quem faz da nossa delegação um exemplo de humanidade.
+        <span className="mt-2 block">Escolha os colegas que mais brilharam este ano.</span>
       </motion.p>
 
       <motion.div variants={fadeUp} initial="hidden" animate="show" custom={4} className="mt-9 w-full max-w-xl">
