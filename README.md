@@ -17,7 +17,7 @@ Pensada primeiro para o telemóvel, com estética de gala (preto, dourado e verm
 | Grande Final | Só os finalistas de cada categoria, em cartões de toque |
 | Resultados | Página pública dos vencedores, só depois de o administrador os publicar (sem números de votos) |
 | Administração | Painel com participação em tempo real, gráficos de barras por categoria, apuramento e resolução de empates, membros, candidatos, categorias, datas, suspensão/encerramento, publicação e exportação CSV |
-| Modo Gala | Apresentação final em ecrã completo: categoria → nomeados → gráfico “a brincar” com rufar de tambores (as barras sobem e descem para enganar o público) → “pum!” o gráfico para nos valores reais e destaca o vencedor → nome do vencedor em grande (fanfarra + confetis) → resumo final |
+| Modo Gala | Apresentação final em ecrã completo: categoria → nomeados → gráfico “a brincar” com rufar de tambores (as barras sobem e descem para enganar o público) → prato e bombo: o gráfico para nos valores reais e destaca o vencedor → 3 segundos depois, nome do vencedor em grande (fanfarra de metais + confetis) → resumo final |
 | Demonstração | `#/demo` — 20 candidatos fictícios, 100 números de teste (1001–1100) e resultados simulados, tudo no navegador e totalmente separado da votação real |
 
 ### Fases (calculadas sempre pelo servidor)

@@ -12,7 +12,7 @@ import { Trophy } from '../components/ui/Trophy'
 import { celebrate } from '../lib/celebrate'
 import { cn } from '../lib/cn'
 import { formatPct, initials, pct, plural } from '../lib/format'
-import { boom, drumroll, fanfare } from '../lib/galaSound'
+import { crash, drumroll, fanfare } from '../lib/galaSound'
 
 interface CategoryShow {
   category: Category
@@ -32,11 +32,11 @@ type Slide =
 /** Duração do gráfico "a brincar" antes de parar nos valores reais. */
 const TEASE_MS = 7500
 /** Tempo com o gráfico parado (vencedor destacado) antes do nome em grande. */
-const HOLD_MS = 3500
+const HOLD_MS = 3000
 
 /**
  * MODO GALA — apresentação em ecrã completo para a cerimónia final.
- * Por categoria: categoria → nomeados → gráfico a brincar (suspense) → "pum!"
+ * Por categoria: categoria → nomeados → gráfico a brincar (rufar de tambores) → prato!
  * o gráfico para nos valores reais → nome do vencedor em grande.
  * Teclas: → / Espaço avançar · ← recuar · F ecrã completo · S som · Esc sair
  */
@@ -347,7 +347,7 @@ function NomineesSlide({ show }: { show: CategoryShow }) {
  * O gráfico "a brincar": as barras ficam sempre no mesmo lugar (ordem
  * alfabética) e só sobem e descem para enganar o público — cada nomeado parece
  * ir ganhar a certa altura, cada vez mais depressa. Pouco antes do fim ficam
- * todas iguais (silêncio)… e "pum!": param nos valores reais e o vencedor brilha.
+ * todas iguais (silêncio)… e, com o prato, param nos valores reais e o vencedor brilha.
  */
 function RaceSlide({ show, sound, onDone }: { show: CategoryShow; sound: boolean; onDone: () => void }) {
   const nominees = show.nominees
@@ -382,11 +382,11 @@ function RaceSlide({ show, sound, onDone }: { show: CategoryShow; sound: boolean
       at(calmAt, () => setHeights(nominees.map(() => 50)))
     }
     if (sound) drumroll(TEASE_MS / 1000)
-    // "pum!": valores reais
+    // prato e bombo: valores reais
     at(TEASE_MS, () => {
       setHeights(finalHeights)
       setSettled(true)
-      if (sound) boom()
+      if (sound) crash()
     })
     at(TEASE_MS + HOLD_MS, () => doneRef.current())
     return () => timers.forEach((id) => window.clearTimeout(id))
