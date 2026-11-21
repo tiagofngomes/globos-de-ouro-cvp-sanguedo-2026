@@ -69,6 +69,14 @@ export function VotePage() {
     window.scrollTo({ top: 0, behavior: 'smooth' })
   }, [step, index])
 
+  // durante a votação o fundo fica calmo (sem estrelas, brilhos e holofotes a mexer):
+  // fica muito mais leve no telemóvel. O agradecimento final mantém o fundo completo.
+  useEffect(() => {
+    const calm = step !== 'done'
+    document.body.classList.toggle('calm-bg', calm)
+    return () => document.body.classList.remove('calm-bg')
+  }, [step])
+
   if (!state) return error ? <ConnectionError message={error} onRetry={refresh} /> : <FullPageLoader />
 
   if (step === 'done') return <ThankYou phase={session?.phase ?? 'phase1'} phase2OpensAt={state.phase2_opens_at} />

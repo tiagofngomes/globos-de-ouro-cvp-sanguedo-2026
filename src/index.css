@@ -113,6 +113,19 @@
   }
 }
 
+/* Fundo calmo durante a votação (classe posta na página de votar): mantém o
+   brilho do palco e o reflexo vermelho, mas tira o que está sempre a mexer —
+   fica muito mais leve no telemóvel. */
+body.calm-bg [data-gala-bg] * {
+  animation: none !important;
+}
+body.calm-bg [data-gala-bg] .animate-rise {
+  display: none;
+}
+body.calm-bg [data-gala-bg] .animate-twinkle {
+  opacity: 0.3;
+}
+
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,

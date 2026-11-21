@@ -26,7 +26,7 @@ export function GalaBackground({ intensity = 1 }: { intensity?: number }) {
   )
 
   return (
-    <div aria-hidden className="pointer-events-none fixed inset-0 -z-10 overflow-hidden bg-gala-950">
+    <div aria-hidden data-gala-bg className="pointer-events-none fixed inset-0 -z-10 overflow-hidden bg-gala-950">
       {/* brilho central do palco */}
       <div
         className="absolute left-1/2 top-[-20%] h-[90vh] w-[140vw] -translate-x-1/2 rounded-[50%] opacity-70"
