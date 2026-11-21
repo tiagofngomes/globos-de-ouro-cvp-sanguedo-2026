@@ -42,10 +42,10 @@ function Hero({ state, offset, onPhaseChange }: { state: PublicState; offset: nu
   const status = (() => {
     switch (s.phase) {
       case 'pre_voting':
-        return { label: 'As nomeações da 1ª fase abrem em', target: s.phase1_opens_at, cta: null, note: formatDateTime(s.phase1_opens_at) }
+        return { label: 'As nomeações da 1ª fase\nabrem em', target: s.phase1_opens_at, cta: null, note: formatDateTime(s.phase1_opens_at) }
       case 'phase1':
         return {
-          label: 'As nomeações da 1ª fase encerram em',
+          label: 'As nomeações da 1ª fase\nencerram em',
           target: s.phase1_closes_at,
           cta: { to: path('/votar'), text: 'Votar agora' },
           note: `até ${formatDateTime(s.phase1_closes_at)}`,
@@ -109,11 +109,11 @@ function Hero({ state, offset, onPhaseChange }: { state: PublicState; offset: nu
 
       <motion.p variants={fadeUp} initial="hidden" animate="show" custom={3} className="mt-5 max-w-md text-sm leading-relaxed text-gold-50/70 sm:text-base">
         Uma noite para celebrar quem faz da nossa delegação um exemplo de humanidade.
-        <span className="mt-2 block">Escolha os colegas que mais brilharam este ano.</span>
+        <span className="block">Escolha os colegas que mais brilharam este ano.</span>
       </motion.p>
 
       <motion.div variants={fadeUp} initial="hidden" animate="show" custom={4} className="mt-9 w-full max-w-xl">
-        <div className="eyebrow mb-4">{status.label}</div>
+        <div className="eyebrow mb-4 whitespace-pre-line leading-relaxed">{status.label}</div>
         {status.target && <Countdown target={status.target} offset={offset} onDone={onPhaseChange} />}
         {status.note && <p className="mt-4 text-xs text-gold-100/50">{status.note}</p>}
         {status.cta && (
