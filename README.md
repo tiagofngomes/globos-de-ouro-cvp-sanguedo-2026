@@ -17,7 +17,7 @@ Pensada primeiro para o telemóvel, com estética de gala (preto, dourado e verm
 | Grande Final | Só os finalistas de cada categoria, em cartões de toque |
 | Resultados | Página pública dos vencedores, só depois de o administrador os publicar (sem números de votos) |
 | Administração | Painel com participação em tempo real, gráficos de barras por categoria, apuramento e resolução de empates, membros, candidatos, categorias, datas, suspensão/encerramento, publicação e exportação CSV |
-| Modo Gala | Apresentação em ecrã completo: categoria → nomeados → “E o Globo de Ouro vai para…” (rufar de tambores) → vencedor (fanfarra + confetis) → resumo final |
+| Modo Gala | Apresentação final em ecrã completo: categoria → nomeados → gráfico “a brincar” com rufar de tambores (as barras sobem e descem para enganar o público) → “pum!” o gráfico para nos valores reais e destaca o vencedor → nome do vencedor em grande (fanfarra + confetis) → resumo final |
 | Demonstração | `#/demo` — 20 candidatos fictícios, 100 números de teste (1001–1100) e resultados simulados, tudo no navegador e totalmente separado da votação real |
 
 ### Fases (calculadas sempre pelo servidor)
@@ -100,7 +100,7 @@ No painel (`…/#/admin`):
 
 1. Encerre a final (**Datas e fases → Encerrar a fase atual agora**, ou defina a data de fecho).
 2. Abra o **Modo Gala** (botão vermelho no painel) no computador ligado ao projetor.
-3. Teclas: **→ / Espaço** avançar · **←** recuar · **F** ecrã completo · **S** som · **V** mostrar percentagens · **Esc** sair.
+3. Teclas: **→ / Espaço** avançar · **←** recuar · **F** ecrã completo · **S** som · **Esc** sair.
    Também pode avançar com clique ou toque, ou usar um apresentador de diapositivos sem fios.
 4. No fim, publique os resultados (**Datas e fases → Publicar resultados**) para todos os verem no telemóvel.
 

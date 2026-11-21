@@ -5,7 +5,7 @@ import { useApi } from '../../api/ApiContext'
 import type { SessionError, VotingSession } from '../../api/types'
 import { DEMO_HINT } from '../../demo/demoApi'
 import { cn } from '../../lib/cn'
-import { CvpCross } from '../ui/CvpBrand'
+import { CvpBadge } from '../ui/CvpBrand'
 import { Spinner } from '../ui/Feedback'
 
 const MESSAGES: Record<SessionError, string> = {
@@ -68,7 +68,7 @@ export function AccessStep({ phase, notice, onSession, onAlreadyVoted }: Props) 
           <div className="flex items-center gap-2 text-[10px] font-semibold uppercase tracking-[0.3em] text-gold-200">
             <Ticket className="h-4 w-4" /> Admissão · 1 voto
           </div>
-          <CvpCross className="h-4 w-4" />
+          <CvpBadge className="h-5 w-5" />
         </div>
         {/* recortes laterais do bilhete */}
         <span className="absolute left-[-12px] top-[37px] h-6 w-6 rounded-full bg-gala-950" />

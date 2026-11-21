@@ -15,6 +15,19 @@ export function CvpCross({ className }: { className?: string }) {
   )
 }
 
+/**
+ * Regra da identidade CVP: a cruz vermelha aparece sozinha ou sobre fundo
+ * BRANCO — nunca sobre fundo escuro ou de outra cor. Usar este emblema sempre
+ * que a cruz precise de um fundo.
+ */
+export function CvpBadge({ className }: { className?: string }) {
+  return (
+    <span className={cn('inline-grid shrink-0 place-items-center rounded-[22%] bg-white', className)}>
+      <CvpCross className="h-[72%] w-[72%]" />
+    </span>
+  )
+}
+
 export function CvpLogoMark({ className }: { className?: string }) {
   const [src, setSrc] = useState<string | null>('./brand/cvp-logo.svg')
   if (src) {
@@ -55,7 +68,7 @@ export function CvpRibbon({ children, className }: { children: React.ReactNode; 
         className,
       )}
     >
-      <CvpCross className="h-2.5 w-2.5" />
+      <CvpBadge className="h-3.5 w-3.5" />
       {children}
     </span>
   )

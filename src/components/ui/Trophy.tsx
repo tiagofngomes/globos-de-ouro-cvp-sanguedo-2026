@@ -57,8 +57,8 @@ export function Trophy({ className, glow = true }: { className?: string; glow?: 
         <rect x="22" y="147" width="76" height="16" rx="3" fill={`url(#g3${id})`} />
         <rect x="22" y="147" width="76" height="2" fill="#fffbea" opacity=".5" />
 
-        {/* placa com cruz vermelha */}
-        <rect x="49" y="130" width="22" height="14" rx="2" fill="#0b0907" opacity=".85" />
+        {/* placa CVP: cruz vermelha sempre sobre branco */}
+        <rect x="49" y="130" width="22" height="14" rx="2" fill="#ffffff" stroke="#8a611b" strokeWidth=".6" />
         <path d="M58 132.5h4v3.5h3.5v4H62v3.5h-4V140h-3.5v-4H58z" fill="#e30613" />
       </svg>
     </div>

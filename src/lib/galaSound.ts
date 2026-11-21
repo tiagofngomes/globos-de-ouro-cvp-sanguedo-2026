@@ -21,14 +21,14 @@ function noiseBuffer(a: AudioContext) {
 }
 
 /** Rufar crescente durante `seconds` segundos. */
-export function drumroll(seconds = 3) {
+function drumrollImpl(seconds = 3) {
   const a = audio()
   if (!a) return
   const buf = noiseBuffer(a)
   const start = a.currentTime
   const hits = Math.floor(seconds * 22)
   for (let i = 0; i < hits; i++) {
-    const t = start + i / 22 + (Math.random() - 0.5) * 0.008
+    const t = Math.max(a.currentTime, start + 0.01 + i / 22 + (Math.random() - 0.5) * 0.008)
     const src = a.createBufferSource()
     src.buffer = buf
     const filter = a.createBiquadFilter()
@@ -43,7 +43,7 @@ export function drumroll(seconds = 3) {
 }
 
 /** Prato + acorde de fanfarra para a revelação. */
-export function fanfare() {
+function fanfareImpl() {
   const a = audio()
   if (!a) return
   const t = a.currentTime
@@ -78,3 +78,45 @@ export function fanfare() {
     o.stop(t + 2.3)
   })
 }
+
+/** "Pum!": batida grave e seca para o momento em que o gráfico para. */
+function boomImpl() {
+  const a = audio()
+  if (!a) return
+  const t = a.currentTime
+  // bombo: seno que desce rapidamente de tom
+  const o = a.createOscillator()
+  o.type = 'sine'
+  o.frequency.setValueAtTime(140, t)
+  o.frequency.exponentialRampToValueAtTime(38, t + 0.45)
+  const g = a.createGain()
+  g.gain.setValueAtTime(0.9, t)
+  g.gain.exponentialRampToValueAtTime(0.0001, t + 0.9)
+  o.connect(g).connect(a.destination)
+  o.start(t)
+  o.stop(t + 1)
+  // ataque com ruído para dar impacto
+  const src = a.createBufferSource()
+  src.buffer = noiseBuffer(a)
+  const lp = a.createBiquadFilter()
+  lp.type = 'lowpass'
+  lp.frequency.value = 1200
+  const ng = a.createGain()
+  ng.gain.value = 0.5
+  src.connect(lp).connect(ng).connect(a.destination)
+  src.start(t)
+}
+
+/** O som nunca pode interromper a apresentação: qualquer falha é ignorada. */
+function safe<A extends unknown[]>(fn: (...args: A) => void) {
+  return (...args: A) => {
+    try {
+      fn(...args)
+    } catch {
+      /* sem som, mas o espetáculo continua */
+    }
+  }
+}
+export const drumroll = safe(drumrollImpl)
+export const fanfare = safe(fanfareImpl)
+export const boom = safe(boomImpl)

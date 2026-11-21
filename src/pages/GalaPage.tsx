@@ -1,5 +1,5 @@
 import { AnimatePresence, motion } from 'framer-motion'
-import { BarChart3, ChevronLeft, ChevronRight, Crown, Maximize, Minimize, Volume2, VolumeX, X } from 'lucide-react'
+import { ChevronLeft, ChevronRight, Crown, Maximize, Minimize, Volume2, VolumeX, X } from 'lucide-react'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useApi, usePath } from '../api/ApiContext'
@@ -11,8 +11,8 @@ import { FullPageLoader } from '../components/ui/Feedback'
 import { Trophy } from '../components/ui/Trophy'
 import { celebrate } from '../lib/celebrate'
 import { cn } from '../lib/cn'
-import { formatPct, initials, pct } from '../lib/format'
-import { drumroll, fanfare } from '../lib/galaSound'
+import { formatPct, initials, pct, plural } from '../lib/format'
+import { boom, drumroll, fanfare } from '../lib/galaSound'
 
 interface CategoryShow {
   category: Category
@@ -25,15 +25,20 @@ type Slide =
   | { kind: 'intro' }
   | { kind: 'category'; ci: number }
   | { kind: 'nominees'; ci: number }
-  | { kind: 'envelope'; ci: number }
+  | { kind: 'race'; ci: number }
   | { kind: 'winner'; ci: number }
   | { kind: 'finale' }
 
-const ENVELOPE_MS = 3400
+/** Duração do gráfico "a brincar" antes de parar nos valores reais. */
+const TEASE_MS = 7500
+/** Tempo com o gráfico parado (vencedor destacado) antes do nome em grande. */
+const HOLD_MS = 3500
 
 /**
- * MODO GALA — apresentação em ecrã completo para a cerimónia.
- * Teclas: → / Espaço avançar · ← recuar · F ecrã completo · S som · V votos · Esc sair
+ * MODO GALA — apresentação em ecrã completo para a cerimónia final.
+ * Por categoria: categoria → nomeados → gráfico a brincar (suspense) → "pum!"
+ * o gráfico para nos valores reais → nome do vencedor em grande.
+ * Teclas: → / Espaço avançar · ← recuar · F ecrã completo · S som · Esc sair
  */
 export function GalaPage() {
   const { api } = useApi()
@@ -43,7 +48,6 @@ export function GalaPage() {
   const [preview, setPreview] = useState(false)
   const [i, setI] = useState(0)
   const [sound, setSound] = useState(true)
-  const [showVotes, setShowVotes] = useState(false)
   const [fs, setFs] = useState(false)
   const [controls, setControls] = useState(true)
   const hideTimer = useRef<number>()
@@ -90,7 +94,7 @@ export function GalaPage() {
       ...shows.flatMap((_, ci) => [
         { kind: 'category', ci } as Slide,
         { kind: 'nominees', ci } as Slide,
-        { kind: 'envelope', ci } as Slide,
+        { kind: 'race', ci } as Slide,
         { kind: 'winner', ci } as Slide,
       ]),
       { kind: 'finale' },
@@ -99,16 +103,13 @@ export function GalaPage() {
 
   const slide = slides[i]
   const next = useCallback(() => setI((x) => Math.min(slides.length - 1, x + 1)), [slides.length])
+  // avança só se ainda estivermos no slide indicado (evita saltos se o apresentador já avançou)
+  const advanceFrom = useCallback((from: number) => setI((x) => (x === from ? Math.min(slides.length - 1, x + 1) : x)), [slides.length])
   const prev = useCallback(() => setI((x) => Math.max(0, x - 1)), [])
 
   // ---------------------------------------------------- efeitos por slide --
   useEffect(() => {
     if (!slide) return
-    if (slide.kind === 'envelope') {
-      if (sound) drumroll(ENVELOPE_MS / 1000 - 0.3)
-      const t = setTimeout(() => setI((x) => x + 1), ENVELOPE_MS)
-      return () => clearTimeout(t)
-    }
     if (slide.kind === 'winner') {
       if (sound) fanfare()
       celebrate('grand')
@@ -134,7 +135,6 @@ export function GalaPage() {
         prev()
       } else if (e.key.toLowerCase() === 'f') toggleFs()
       else if (e.key.toLowerCase() === 's') setSound((s) => !s)
-      else if (e.key.toLowerCase() === 'v') setShowVotes((s) => !s)
       else if (e.key === 'Escape' && !document.fullscreenElement) navigate(path('/admin'))
     }
     document.addEventListener('fullscreenchange', onFs)
@@ -171,7 +171,7 @@ export function GalaPage() {
       }}
     >
       <GalaBackground />
-      <div className="absolute left-6 top-5 z-10 opacity-70">
+      <div className="absolute left-6 top-5 z-10">
         <CvpBrand compact />
       </div>
       {preview && (
@@ -192,8 +192,8 @@ export function GalaPage() {
           {slide?.kind === 'intro' && <IntroSlide />}
           {slide?.kind === 'category' && show && <CategorySlide show={show} index={slide.ci} />}
           {slide?.kind === 'nominees' && show && <NomineesSlide show={show} />}
-          {slide?.kind === 'envelope' && show && <EnvelopeSlide show={show} />}
-          {slide?.kind === 'winner' && show && <WinnerSlide show={show} showVotes={showVotes} />}
+          {slide?.kind === 'race' && show && <RaceSlide show={show} sound={sound} onDone={() => advanceFrom(i)} />}
+          {slide?.kind === 'winner' && show && <WinnerSlide show={show} />}
           {slide?.kind === 'finale' && <FinaleSlide shows={shows} />}
           {shows.length === 0 && <p className="text-gold-100/60">Sem dados para apresentar.</p>}
         </motion.div>
@@ -216,9 +216,6 @@ export function GalaPage() {
             <ChevronRight className="h-5 w-5" />
           </CtrlBtn>
           <span className="mx-1 h-6 w-px bg-white/10" />
-          <CtrlBtn onClick={() => setShowVotes((v) => !v)} label="Mostrar votos (V)" active={showVotes}>
-            <BarChart3 className="h-4 w-4" />
-          </CtrlBtn>
           <CtrlBtn onClick={() => setSound((s) => !s)} label="Som (S)">
             {sound ? <Volume2 className="h-4 w-4" /> : <VolumeX className="h-4 w-4" />}
           </CtrlBtn>
@@ -333,36 +330,157 @@ function NomineesSlide({ show }: { show: CategoryShow }) {
   )
 }
 
-function EnvelopeSlide({ show }: { show: CategoryShow }) {
+/**
+ * O gráfico "a brincar": as barras ficam sempre no mesmo lugar (ordem
+ * alfabética) e só sobem e descem para enganar o público — cada nomeado parece
+ * ir ganhar a certa altura, cada vez mais depressa. Pouco antes do fim ficam
+ * todas iguais (silêncio)… e "pum!": param nos valores reais e o vencedor brilha.
+ */
+function RaceSlide({ show, sound, onDone }: { show: CategoryShow; sound: boolean; onDone: () => void }) {
+  const nominees = show.nominees
+  const maxVotes = Math.max(0, ...nominees.map((r) => r.votes))
+  const [heights, setHeights] = useState<number[]>(() => nominees.map(() => 6))
+  const [settled, setSettled] = useState(false)
+  const doneRef = useRef(onDone)
+  doneRef.current = onDone
+
+  useEffect(() => {
+    const timers: number[] = []
+    const at = (ms: number, fn: () => void) => timers.push(window.setTimeout(fn, ms))
+    const n = nominees.length
+    const finalHeights = nominees.map((r) => (maxVotes > 0 ? Math.max(3, (r.votes / maxVotes) * 100) : 3))
+
+    if (n > 0) {
+      // ordem dos "falsos líderes": todos parecem ganhar pelo menos uma vez, por ordem aleatória
+      const order = [...nominees.keys()].sort(() => Math.random() - 0.5)
+      const calmAt = TEASE_MS - 900
+      let t = 350
+      let beat = 0
+      while (t < calmAt) {
+        const leader = order[beat % n]
+        // de vez em quando dois "empatados" lá em cima, para baralhar ainda mais
+        const rival = n > 1 && beat % 3 === 2 ? order[(beat + 1) % n] : -1
+        const hs = nominees.map((_, k) => (k === leader ? 80 + Math.random() * 18 : k === rival ? 72 + Math.random() * 18 : 15 + Math.random() * 50))
+        at(t, () => setHeights(hs))
+        t += 780 - (t / calmAt) * 520 // cada vez mais rápido: ~780 ms → ~260 ms
+        beat++
+      }
+      // silêncio: todas iguais, a meio
+      at(calmAt, () => setHeights(nominees.map(() => 50)))
+    }
+    if (sound) drumroll(TEASE_MS / 1000)
+    // "pum!": valores reais
+    at(TEASE_MS, () => {
+      setHeights(finalHeights)
+      setSettled(true)
+      if (sound) boom()
+    })
+    at(TEASE_MS + HOLD_MS, () => doneRef.current())
+    return () => timers.forEach((id) => window.clearTimeout(id))
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  const isWinner = (r: ResultRow) => settled && show.winners.some((w) => w.candidate_id === r.candidate_id)
+
   return (
-    <div className="text-center">
-      <motion.div
-        animate={{ scale: [1, 1.06, 1], rotate: [0, -2, 2, 0] }}
-        transition={{ duration: 0.6, repeat: Infinity }}
-        className="mx-auto mb-10 grid h-[22vh] w-[32vh] place-items-center rounded-xl"
-        style={{ background: 'linear-gradient(160deg,#f3dc8f,#b07f1f)', boxShadow: '0 0 80px rgba(236,201,90,.6)' }}
-      >
-        <div className="grid h-[8vh] w-[8vh] place-items-center rounded-full bg-cvp-500 shadow-red-glow">
-          <Crown className="h-[4vh] w-[4vh] text-white" />
-        </div>
-      </motion.div>
-      <motion.p initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="eyebrow text-[clamp(.7rem,1.2vw,1rem)]">
-        {show.category.name}
-      </motion.p>
+    <div className="flex h-full w-full max-w-6xl flex-col text-center">
+      <div className="eyebrow text-[clamp(.7rem,1.2vw,1rem)]">{show.category.name}</div>
       <motion.h2
         initial={{ opacity: 0, scale: 0.9 }}
         animate={{ opacity: 1, scale: 1 }}
-        transition={{ delay: 0.3 }}
-        className="mt-4 font-serif text-[clamp(2rem,5vw,4.5rem)] italic text-gold-50"
+        transition={{ delay: 0.2 }}
+        className="mt-3 font-serif text-[clamp(1.8rem,4.2vw,3.8rem)] italic leading-tight text-gold-50"
       >
         E o Globo de Ouro vai para…
       </motion.h2>
+
+      {nominees.length === 0 ? (
+        <p className="mt-16 text-2xl text-gold-100/60">Sem votos nesta categoria.</p>
+      ) : (
+        <div className="mt-[3vh] flex min-h-0 flex-1 items-stretch justify-center gap-[clamp(0.75rem,3vw,3rem)]">
+          {nominees.map((r, k) => {
+            const win = isWinner(r)
+            const lose = settled && !win
+            return (
+              <div key={r.candidate_id} className="flex w-[clamp(5rem,12.5vw,13rem)] min-w-0 flex-col items-center">
+                {/* valor por cima da barra: "?" enquanto brinca, valores reais no fim */}
+                <div className="flex h-[clamp(3rem,9vh,6rem)] flex-col items-center justify-end">
+                  {settled ? (
+                    <motion.div initial={{ opacity: 0, y: 10, scale: 0.8 }} animate={{ opacity: 1, y: 0, scale: 1 }} transition={{ delay: 0.25 }}>
+                      {win && (
+                        <Crown className="mx-auto h-[clamp(1.4rem,3vw,2.6rem)] w-[clamp(1.4rem,3vw,2.6rem)] text-gold-300 drop-shadow-[0_0_18px_rgba(236,201,90,.9)]" />
+                      )}
+                      <div
+                        className={cn(
+                          'font-display text-[clamp(1.1rem,2.4vw,2.2rem)] font-bold tabular-nums leading-none',
+                          win ? 'text-gold-100' : 'text-gold-50/50',
+                        )}
+                      >
+                        {formatPct(pct(r.votes, show.total))}
+                      </div>
+                      <div className={cn('mt-1 text-[clamp(.65rem,1vw,.9rem)] tabular-nums', win ? 'text-gold-200/80' : 'text-gold-50/35')}>
+                        {plural(r.votes, 'voto', 'votos')}
+                      </div>
+                    </motion.div>
+                  ) : (
+                    <motion.span
+                      animate={{ opacity: [0.35, 0.9, 0.35] }}
+                      transition={{ duration: 0.9, repeat: Infinity }}
+                      className="font-display text-[clamp(1.4rem,3vw,2.6rem)] text-gold-200"
+                    >
+                      ?
+                    </motion.span>
+                  )}
+                </div>
+
+                {/* barra (sempre no mesmo lugar; só a altura muda) */}
+                <div className="relative mt-2 flex w-full flex-1 items-end">
+                  <motion.div
+                    className={cn(
+                      'relative w-full overflow-hidden rounded-t-2xl transition-[background-color,box-shadow] duration-700',
+                      lose ? 'bg-white/15' : 'bg-gradient-to-t from-gold-700 via-gold-400 to-gold-100',
+                      win && 'shadow-[0_0_60px_rgba(236,201,90,.75)]',
+                    )}
+                    initial={{ height: '6%' }}
+                    animate={{ height: `${heights[k] ?? 0}%` }}
+                    transition={settled ? { type: 'spring', stiffness: 70, damping: 9 } : { type: 'spring', stiffness: 160, damping: 13 }}
+                  >
+                    {!lose && (
+                      <div className="absolute inset-0 animate-shimmer bg-[linear-gradient(110deg,transparent_30%,rgba(255,255,255,.35)_50%,transparent_70%)] bg-[length:200%_100%]" />
+                    )}
+                  </motion.div>
+                </div>
+
+                {/* nome */}
+                <div className="mt-3 flex h-[clamp(6.5rem,15vh,10rem)] shrink-0 flex-col items-center justify-start gap-2">
+                  <span
+                    className={cn(
+                      'grid h-[clamp(2.4rem,5vw,4.2rem)] w-[clamp(2.4rem,5vw,4.2rem)] place-items-center rounded-full font-display text-[clamp(.8rem,1.5vw,1.4rem)] font-semibold text-gala-900 transition-opacity duration-700',
+                      lose && 'opacity-40',
+                    )}
+                    style={{ background: 'linear-gradient(135deg,#fdf8e8,#e3b53a 50%,#8a611b)' }}
+                  >
+                    {initials(r.candidate_name)}
+                  </span>
+                  <span
+                    className={cn(
+                      'line-clamp-3 font-display text-[clamp(.8rem,1.4vw,1.35rem)] leading-tight transition-colors duration-700',
+                      win ? 'text-gold-100' : lose ? 'text-gold-50/40' : 'text-gold-50',
+                    )}
+                  >
+                    {r.candidate_name}
+                  </span>
+                </div>
+              </div>
+            )
+          })}
+        </div>
+      )}
     </div>
   )
 }
 
-function WinnerSlide({ show, showVotes }: { show: CategoryShow; showVotes: boolean }) {
-  const ranking = [...show.nominees].sort((a, b) => b.votes - a.votes)
+function WinnerSlide({ show }: { show: CategoryShow }) {
   return (
     <div className="w-full max-w-6xl text-center">
       {/* foco de luz sobre o vencedor */}
@@ -392,38 +510,6 @@ function WinnerSlide({ show, showVotes }: { show: CategoryShow; showVotes: boole
         ))}
         {show.winners.length > 1 && <div className="eyebrow text-cvp-400">Ex aequo</div>}
       </div>
-
-      <AnimatePresence>
-        {showVotes && show.total > 0 && (
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0 }}
-            className="relative mx-auto mt-10 max-w-2xl space-y-2 text-left"
-          >
-            {ranking.map((r, k) => {
-              const share = pct(r.votes, show.total)
-              const win = show.winners.some((w) => w.candidate_id === r.candidate_id)
-              return (
-                <div key={r.candidate_id}>
-                  <div className="mb-1 flex justify-between text-sm">
-                    <span className={win ? 'text-gold-100' : 'text-gold-50/60'}>{r.candidate_name}</span>
-                    <span className="tabular-nums text-gold-100/70">{formatPct(share)}</span>
-                  </div>
-                  <div className="h-2 overflow-hidden rounded-full bg-white/10">
-                    <motion.div
-                      initial={{ width: 0 }}
-                      animate={{ width: `${share}%` }}
-                      transition={{ delay: 0.2 + k * 0.1, duration: 1 }}
-                      className={cn('h-full rounded-full', win ? 'bg-gradient-to-r from-gold-600 to-gold-100' : 'bg-white/30')}
-                    />
-                  </div>
-                </div>
-              )
-            })}
-          </motion.div>
-        )}
-      </AnimatePresence>
     </div>
   )
 }
