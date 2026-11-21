@@ -36,7 +36,7 @@ export function CandidatesPage() {
     e.preventDefault()
     if (newName.trim().length < 2) return
     const r = await api.admin.saveCandidate({ name: newName })
-    toast(r.ok ? 'Candidato adicionado.' : (r.error ?? 'Erro'), r.ok ? 'success' : 'error')
+    toast(r.ok ? 'Nome adicionado.' : (r.error ?? 'Erro'), r.ok ? 'success' : 'error')
     if (r.ok) setNewName('')
     load()
   }
@@ -67,8 +67,8 @@ export function CandidatesPage() {
   return (
     <div>
       <AdminPageTitle
-        title="Candidatos"
-        subtitle={`${list.filter((c) => c.active).length} ativos · elementos da delegação que podem ser nomeados`}
+        title="Nomeados"
+        subtitle={`Todos os membros que podem ser nomeados. São estes os nomes que aparecem na votação. (${list.filter((c) => c.active).length} ativos)`}
         actions={
           <button onClick={() => setImportOpen(true)} className="btn-gold btn-sm">
             <Upload className="h-4 w-4" /> Importar nomes
@@ -132,7 +132,7 @@ export function CandidatesPage() {
             </li>
           ))}
         </ul>
-        {filtered.length === 0 && <p className="py-6 text-center text-sm text-gold-100/40">Nenhum candidato.</p>}
+        {filtered.length === 0 && <p className="py-6 text-center text-sm text-gold-100/40">Nenhum nome encontrado.</p>}
       </Panel>
 
       <ImportBox
@@ -141,7 +141,7 @@ export function CandidatesPage() {
           setImportOpen(false)
           load()
         }}
-        title="Importar candidatos"
+        title="Importar nomeados"
         mode="names"
         hint="Um nome por linha (de um ficheiro CSV é usada a primeira coluna). Nomes repetidos (mesmo com acentos ou maiúsculas diferentes) são ignorados."
         onImport={(items) => api.admin.importCandidates(items)}

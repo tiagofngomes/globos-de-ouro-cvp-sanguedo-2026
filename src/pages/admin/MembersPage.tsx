@@ -30,7 +30,7 @@ export function MembersPage() {
     e.preventDefault()
     if (!single.trim()) return
     const r = await api.admin.importMembers([single])
-    toast(r.inserted ? `Membro ${single.trim()} adicionado.` : 'Esse número já existe.', r.inserted ? 'success' : 'error')
+    toast(r.inserted ? `Número ${single.trim()} adicionado.` : 'Esse número já existe.', r.inserted ? 'success' : 'error')
     setSingle('')
     load()
   }
@@ -66,8 +66,8 @@ export function MembersPage() {
   return (
     <div>
       <AdminPageTitle
-        title="Membros autorizados"
-        subtitle={`${active} ativos · ${members.length} no total`}
+        title="Votantes"
+        subtitle={`Os números de membro que podem votar. Cada número vota uma vez por fase. (${active} ativos de ${members.length})`}
         actions={
           <button onClick={() => setImportOpen(true)} className="btn-gold btn-sm">
             <Upload className="h-4 w-4" /> Importar lista
@@ -133,7 +133,7 @@ export function MembersPage() {
           ))}
         </ul>
         {filtered.length > 300 && <p className="mt-3 text-xs text-gold-100/40">A mostrar 300 de {filtered.length}. Use a pesquisa.</p>}
-        {filtered.length === 0 && <p className="py-6 text-center text-sm text-gold-100/40">Nenhum membro encontrado.</p>}
+        {filtered.length === 0 && <p className="py-6 text-center text-sm text-gold-100/40">Nenhum número encontrado.</p>}
       </Panel>
 
       <ImportBox

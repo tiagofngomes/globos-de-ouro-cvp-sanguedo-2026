@@ -92,12 +92,12 @@ export function DashboardPage() {
       <div className="mt-4 grid grid-cols-2 gap-3 lg:grid-cols-4">
         <Stat
           icon={Users}
-          label="Membros autorizados"
+          label="Votantes"
           value={o.members_active}
           sub={o.members_total !== o.members_active ? `${o.members_total} no total` : undefined}
           to={path('/admin/membros')}
         />
-        <Stat icon={UserRound} label="Candidatos ativos" value={o.candidates_active} to={path('/admin/candidatos')} />
+        <Stat icon={UserRound} label="Nomeados" value={o.candidates_active} to={path('/admin/candidatos')} />
         <Stat icon={Tags} label="Categorias" value={o.categories_active} to={path('/admin/categorias')} />
         <Stat
           icon={Vote}

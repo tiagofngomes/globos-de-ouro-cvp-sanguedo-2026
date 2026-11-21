@@ -45,8 +45,8 @@ const NAV = [
   { to: '', label: 'Painel', icon: LayoutDashboard, end: true },
   { to: '/resultados', label: 'Resultados', icon: BarChart3 },
   { to: '/finalistas', label: 'Finalistas', icon: Trophy },
-  { to: '/membros', label: 'Membros', icon: Users },
-  { to: '/candidatos', label: 'Candidatos', icon: UserRound },
+  { to: '/membros', label: 'Votantes', icon: Users },
+  { to: '/candidatos', label: 'Nomeados', icon: UserRound },
   { to: '/categorias', label: 'Categorias', icon: Tags },
   { to: '/definicoes', label: 'Datas e fases', icon: CalendarCog },
 ]

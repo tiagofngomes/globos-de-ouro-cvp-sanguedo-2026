@@ -39,7 +39,7 @@ export function ResultsAdminPage() {
 
   const exportCsv = () => {
     if (!categories) return
-    const out: Array<Array<string | number>> = [['Fase', 'Categoria', 'Posição', 'Candidato', 'Votos', 'Percentagem', 'Estado']]
+    const out: Array<Array<string | number>> = [['Fase', 'Categoria', 'Posição', 'Nome', 'Votos', 'Percentagem', 'Estado']]
     for (const c of categories) {
       const list = byCategory[c.id] ?? []
       const total = list.reduce((a, r) => a + r.votes, 0)
