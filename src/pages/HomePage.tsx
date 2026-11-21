@@ -156,7 +156,7 @@ function Timeline({ state, offset }: { state: PublicState; offset: number }) {
   ]
   return (
     <section>
-      <SectionTitle eyebrow="O caminho até à gala" title="Três atos, um palco" />
+      <SectionTitle eyebrow="O caminho até à gala" title="As fases da votação" />
       <ol className="relative mx-auto mt-8 grid max-w-4xl grid-cols-1 gap-4 sm:grid-cols-3">
         {steps.map((s, i) => (
           <motion.li
