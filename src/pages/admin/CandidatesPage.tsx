@@ -7,7 +7,7 @@ import { ImportBox } from '../../components/admin/ImportBox'
 import { Avatar } from '../../components/vote/CandidateAutocomplete'
 import { FullPageLoader, Modal, useConfirm, useToast } from '../../components/ui/Feedback'
 import { cn } from '../../lib/cn'
-import { normalizeText } from '../../lib/normalize'
+import { formatPersonName, normalizeText } from '../../lib/normalize'
 
 export function CandidatesPage() {
   const { api } = useApi()
@@ -37,7 +37,7 @@ export function CandidatesPage() {
   const add = async (e: React.FormEvent) => {
     e.preventDefault()
     if (newName.trim().length < 2) return
-    const r = await api.admin.saveCandidate({ name: newName })
+    const r = await api.admin.saveCandidate({ name: formatPersonName(newName) })
     toast(r.ok ? `${newName.trim()} adicionado.` : (r.error ?? 'Erro'), r.ok ? 'success' : 'error')
     if (r.ok) {
       setNewName('')
@@ -179,7 +179,7 @@ export function CandidatesPage() {
         title="Importar candidatos"
         mode="names"
         hint="Um nome por linha (de um ficheiro CSV é usada a primeira coluna). Nomes repetidos (mesmo com acentos ou maiúsculas diferentes) são ignorados."
-        onImport={(items) => api.admin.importCandidates(items)}
+        onImport={(items) => api.admin.importCandidates(items.map(formatPersonName))}
       />
     </div>
   )

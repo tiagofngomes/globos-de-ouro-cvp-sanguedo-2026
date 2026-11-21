@@ -76,3 +76,27 @@ export function searchNames<T>(items: T[], query: string, getName: (item: T) => 
 
   return results.sort((a, b) => b.score - a.score || getName(a.item).localeCompare(getName(b.item), 'pt')).slice(0, limit)
 }
+
+const NAME_PARTICLES = new Set(['de', 'da', 'do', 'das', 'dos', 'e', 'del', 'della', 'di', 'van', 'von'])
+
+/**
+ * Põe um nome com só as iniciais em maiúscula, à portuguesa:
+ * "MARIA DA CONCEIÇÃO SANTOS" → "Maria da Conceição Santos".
+ * Só mexe em nomes escritos todos em maiúsculas ou todos em minúsculas; um nome
+ * já com maiúsculas e minúsculas misturadas é mantido como foi escrito.
+ */
+export function formatPersonName(raw: string): string {
+  const name = raw.replace(/\s+/g, ' ').trim()
+  const mixed = name !== name.toUpperCase() && name !== name.toLowerCase()
+  if (mixed) return name
+  return name
+    .toLowerCase()
+    .split(' ')
+    .map((word, i) =>
+      i > 0 && NAME_PARTICLES.has(word)
+        ? word
+        : // inicial maiúscula também depois de hífen ou apóstrofo (Maria-João, D'Almeida)
+          word.replace(/(^|[-'’])(\p{L})/gu, (_, sep: string, ch: string) => sep + ch.toUpperCase()),
+    )
+    .join(' ')
+}
