@@ -28,6 +28,8 @@ export interface PublicState {
   gala_at: string | null
   finalists_per_category: number
   categories: Category[]
+  /** true se todos os códigos de voto ativos forem só números (teclado numérico no telemóvel) */
+  codes_numeric?: boolean
 }
 
 export interface CandidateOption {
@@ -99,6 +101,8 @@ export interface AdminOverview {
   candidates_active: number
   categories_active: number
   finalists_count: number
+  /** os resultados de uma fase só ficam visíveis depois de essa fase fechar (anonimato) */
+  results_visible: { phase1: boolean; phase2: boolean }
   ties: string[]
 }
 
@@ -119,12 +123,15 @@ export interface ProposalRow {
   status: 'qualified' | 'tied' | 'out'
 }
 
+/** Código de voto (pode ser o número de membro, 1, 2, 3… ou um código à escolha). */
 export interface Member {
   id: string
   member_number: string
   active: boolean
-  has_pin: boolean
   created_at: string
+  /** já utilizado na 1ª / 2ª fase (nunca em quem votou) */
+  voted_phase1: boolean
+  voted_phase2: boolean
 }
 
 export interface Candidate {
@@ -149,7 +156,7 @@ export interface VotingApi {
   readonly mode: 'live' | 'demo'
 
   getPublicState(): Promise<PublicState>
-  startSession(memberNumber: string, pin?: string): Promise<VotingSession>
+  startSession(code: string): Promise<VotingSession>
   submitBallot(token: string, votes: BallotVote[]): Promise<SubmitResult>
   getPublicResults(): Promise<PublicResults>
 
@@ -180,7 +187,6 @@ export interface VotingApi {
     listMembers(): Promise<Member[]>
     importMembers(numbers: string[]): Promise<ImportResult>
     setMemberActive(id: string, active: boolean): Promise<OpResult>
-    setMemberPin(id: string, pin: string | null): Promise<OpResult>
     deleteMember(id: string): Promise<OpResult>
   }
 }

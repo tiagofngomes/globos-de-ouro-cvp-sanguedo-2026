@@ -46,6 +46,7 @@ export function GalaPage() {
   const navigate = useNavigate()
   const [shows, setShows] = useState<CategoryShow[] | null>(null)
   const [preview, setPreview] = useState(false)
+  const [blocked, setBlocked] = useState<string | null>(null)
   const [i, setI] = useState(0)
   const [sound, setSound] = useState(true)
   const [fs, setFs] = useState(false)
@@ -57,10 +58,22 @@ export function GalaPage() {
     ;(async () => {
       const [cats, overview] = await Promise.all([api.admin.listCategories(), api.admin.overview()])
       const active = cats.filter((c) => c.active !== false).sort((a, b) => a.sort_order - b.sort_order)
-      let rows = await api.admin.results(2)
+      const vis = overview.results_visible
+      // anonimato: os resultados de uma fase só existem para o painel depois de a fase fechar
+      if (!vis.phase2 && overview.settings.finalists_confirmed && (overview.phase === 'phase2' || overview.phase === 'paused')) {
+        setBlocked('A 2ª fase ainda está a decorrer. Encerre-a em “Datas e fases” para poder apresentar os vencedores.')
+        setShows([])
+        return
+      }
+      let rows = vis.phase2 ? await api.admin.results(2) : []
       let isPreview = false
       if (rows.length === 0) {
-        // ensaio antes da final: usa os N mais votados das nomeações
+        if (!vis.phase1) {
+          setBlocked('A 1ª fase ainda está a decorrer. Os resultados só podem ser apresentados depois de a votação fechar.')
+          setShows([])
+          return
+        }
+        // ensaio antes da 2ª fase: usa os N mais votados da 1ª fase
         isPreview = true
         const r1 = await api.admin.results(1)
         rows = active.flatMap((c) =>
@@ -156,6 +169,27 @@ export function GalaPage() {
   }, [])
 
   if (!shows) return <FullPageLoader label="A preparar o palco…" />
+  if (blocked) {
+    return (
+      <div className="fixed inset-0 grid place-items-center overflow-hidden bg-gala-950 px-6 text-center">
+        <GalaBackground intensity={0.5} />
+        <div className="relative max-w-xl">
+          <CvpBrand compact className="justify-center" />
+          <Trophy className="mx-auto mt-8 h-40 w-28 opacity-80" />
+          <h1 className="mt-8 font-display text-[length:min(4vw,6vh)] text-gold-50">Ainda não há resultados para apresentar</h1>
+          <p className="mt-4 text-gold-100/70">{blocked}</p>
+          <div className="mt-8 flex flex-wrap justify-center gap-3">
+            <button onClick={() => navigate(path('/admin/definicoes'))} className="btn-gold">
+              Ir para Datas e fases
+            </button>
+            <button onClick={() => navigate(path('/admin'))} className="btn-ghost">
+              Voltar ao painel
+            </button>
+          </div>
+        </div>
+      </div>
+    )
+  }
 
   const show = slide && 'ci' in slide ? shows[slide.ci] : null
 

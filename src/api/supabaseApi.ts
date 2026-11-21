@@ -68,9 +68,9 @@ export function createSupabaseApi(): VotingApi {
 
     getPublicState: () => rpc<PublicState>('get_public_state'),
 
-    async startSession(memberNumber, pin) {
+    async startSession(code) {
       try {
-        return await rpc<VotingSession>('start_voting_session', { p_member_number: memberNumber, p_pin: pin ?? null })
+        return await rpc<VotingSession>('start_voting_session', { p_member_number: code, p_pin: null })
       } catch {
         return { ok: false, error: 'network' }
       }
@@ -173,22 +173,10 @@ export function createSupabaseApi(): VotingApi {
       },
       importCandidates: (names) => rpc<ImportResult>('admin_import_candidates', { p_names: names }),
 
-      async listMembers() {
-        const { data, error } = await sb().from('members').select('id, member_number, active, has_pin, created_at').order('member_number')
-        if (error) throw new Error(friendly(error))
-        return data as Member[]
-      },
+      listMembers: () => rpc<Member[]>('admin_list_members'),
       importMembers: (numbers) => rpc<ImportResult>('admin_import_members', { p_numbers: numbers }),
       async setMemberActive(id, active) {
         return op((await sb().from('members').update({ active }).eq('id', id)).error)
-      },
-      async setMemberPin(id, pin) {
-        try {
-          await rpc('admin_set_member_pin', { p_member_id: id, p_pin: pin })
-          return { ok: true }
-        } catch (e) {
-          return { ok: false, error: (e as Error).message }
-        }
       },
       async deleteMember(id) {
         return op((await sb().from('members').delete().eq('id', id)).error)

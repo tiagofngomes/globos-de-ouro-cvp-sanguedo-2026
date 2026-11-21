@@ -205,8 +205,9 @@ drop policy if exists admin_all on public.candidates;
 create policy admin_all on public.candidates for all to authenticated using (public.is_admin()) with check (public.is_admin());
 drop policy if exists admin_all on public.members;
 create policy admin_all on public.members for all to authenticated using (public.is_admin()) with check (public.is_admin());
+-- vote_tallies: sem leitura direta, nem para administradores. Os totais só são
+-- consultados através de admin_results(), que os esconde enquanto a fase está aberta.
 drop policy if exists admin_read on public.vote_tallies;
-create policy admin_read on public.vote_tallies for select to authenticated using (public.is_admin());
 drop policy if exists admin_read on public.finalists;
 create policy admin_read on public.finalists for select to authenticated using (public.is_admin());
 -- vote_participation, voting_sessions e access_attempts: sem políticas →
@@ -218,7 +219,7 @@ create policy admin_read on public.finalists for select to authenticated using (
 revoke all on all tables in schema public from anon, authenticated;
 grant select, update on public.event_settings to authenticated;
 grant select, insert, update, delete on public.categories, public.candidates to authenticated;
-grant select on public.admins, public.vote_tallies, public.finalists to authenticated;
+grant select on public.admins, public.finalists to authenticated;
 
 -- O PIN nunca é devolvido ao cliente, nem a administradores: privilégios por coluna.
 grant select (id, member_number, active, has_pin, created_at) on public.members to authenticated;
@@ -371,6 +372,7 @@ begin
     'phase2_closes_at',  s.phase2_closes_at,
     'gala_at',           s.gala_at,
     'finalists_per_category', s.finalists_per_category,
+    'codes_numeric', not exists (select 1 from public.members m where m.active and m.member_number !~ '^[0-9]+$'),
     'categories', coalesce((
       select jsonb_agg(jsonb_build_object(
                'id', c.id, 'slug', c.slug, 'name', c.name,
@@ -609,6 +611,45 @@ begin
 end
 $$;
 
+-- ANONIMATO: enquanto uma fase está aberta, os totais dessa fase ficam escondidos
+-- (os administradores veem apenas a participação). Como a lista de códigos mostra
+-- quais já foram utilizados, ver os totais a mudar em tempo real permitiria
+-- adivinhar em quem um código votou.
+create or replace function public.results_visible(p_phase integer)
+returns boolean
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select case p_phase
+           when 1 then now() > s.phase1_closes_at
+           when 2 then s.results_published or (s.phase2_closes_at is not null and now() > s.phase2_closes_at)
+           else false
+         end
+    from public.event_settings s
+   where s.id
+$$;
+
+-- Códigos de voto com indicação de "utilizado" em cada fase (nunca em quem votou).
+create or replace function public.admin_list_members()
+returns table (id uuid, member_number text, active boolean, created_at timestamptz, voted_phase1 boolean, voted_phase2 boolean)
+language plpgsql
+stable
+security definer
+set search_path = public
+as $$
+begin
+  perform public.assert_admin();
+  return query
+    select m.id, m.member_number, m.active, m.created_at,
+           exists (select 1 from public.vote_participation p where p.member_id = m.id and p.phase = 1),
+           exists (select 1 from public.vote_participation p where p.member_id = m.id and p.phase = 2)
+      from public.members m
+     order by length(m.member_number), m.member_number;
+end
+$$;
+
 create or replace function public.admin_overview()
 returns jsonb
 language plpgsql
@@ -631,7 +672,11 @@ begin
     'candidates_active', (select count(*) from public.candidates where active),
     'categories_active', (select count(*) from public.categories where active),
     'finalists_count',   (select count(*) from public.finalists),
-    'ties', (select coalesce(jsonb_agg(distinct p.category_id), '[]'::jsonb) from public.finalist_proposal() p where p.status = 'tied')
+    'results_visible', jsonb_build_object('phase1', public.results_visible(1), 'phase2', public.results_visible(2)),
+    -- empates só depois do fecho da 1ª fase (antes disso seria revelar resultados)
+    'ties', case when public.results_visible(1)
+                 then (select coalesce(jsonb_agg(distinct p.category_id), '[]'::jsonb) from public.finalist_proposal() p where p.status = 'tied')
+                 else '[]'::jsonb end
   );
 end
 $$;
@@ -645,6 +690,10 @@ set search_path = public
 as $$
 begin
   perform public.assert_admin();
+  -- com a fase aberta não devolve nada (ver results_visible)
+  if not public.results_visible(p_phase) then
+    return;
+  end if;
   if p_phase = 1 then
     return query
       select t.category_id, t.candidate_id, c.name, t.votes,
@@ -671,6 +720,9 @@ set search_path = public
 as $$
 begin
   perform public.assert_admin();
+  if not public.results_visible(1) then
+    return;
+  end if;
   return query select p.category_id, p.candidate_id, p.candidate_name, p.votes, p.rank_pos, p.status from public.finalist_proposal() p;
 end
 $$;
@@ -856,10 +908,12 @@ grant execute on function public.admin_import_members(text[])         to authent
 grant execute on function public.admin_set_member_pin(uuid, text)     to authenticated;
 grant execute on function public.admin_import_candidates(text[])      to authenticated;
 grant execute on function public.admin_reset_votes(integer, text)     to authenticated;
+grant execute on function public.admin_list_members()                 to authenticated;
 
 -- Funções internas: nunca expostas diretamente.
 revoke execute on function public.finalist_proposal()  from public, anon, authenticated;
 revoke execute on function public.try_auto_finalize()  from public, anon, authenticated;
+revoke execute on function public.results_visible(integer) from public, anon, authenticated;
 
 -- -----------------------------------------------------------------------------
 -- Categorias iniciais

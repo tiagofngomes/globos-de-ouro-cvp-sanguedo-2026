@@ -2,6 +2,7 @@ import { ChevronDown, Download, Lock } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
 import { useApi } from '../../api/ApiContext'
 import type { Category, ProposalRow, ResultRow } from '../../api/types'
+import { ResultsHidden } from '../../components/admin/ResultsHidden'
 import { AdminPageTitle, Panel, useAdmin } from '../../components/admin/AdminLayout'
 import { BarChart, type BarDatum } from '../../components/charts/BarChart'
 import { CategoryMedallion } from '../../components/ui/CategoryIcon'
@@ -19,6 +20,8 @@ export function ResultsAdminPage() {
   const [rows, setRows] = useState<ResultRow[]>([])
   const [proposal, setProposal] = useState<ProposalRow[]>([])
   const voters = phase === 1 ? overview?.phase1_voters : overview?.phase2_voters
+  // anonimato: com a fase aberta os resultados não são mostrados (nem devolvidos pelo servidor)
+  const hidden = overview ? !overview.results_visible[phase === 1 ? 'phase1' : 'phase2'] : true
 
   useEffect(() => {
     api.admin.listCategories().then((c) => setCategories(c.filter((x) => x.active !== false)))
@@ -67,9 +70,9 @@ export function ResultsAdminPage() {
     <div>
       <AdminPageTitle
         title="Resultados"
-        subtitle={`${voters ?? 0} ${voters === 1 ? 'membro votou' : 'membros votaram'} nesta fase`}
+        subtitle={`${voters ?? 0} ${voters === 1 ? 'código já votou' : 'códigos já votaram'} nesta fase`}
         actions={
-          <button onClick={exportCsv} className="btn-ghost btn-sm">
+          <button onClick={exportCsv} disabled={hidden} className="btn-ghost btn-sm">
             <Download className="h-4 w-4" /> Exportar CSV
           </button>
         }
@@ -92,10 +95,14 @@ export function ResultsAdminPage() {
 
       <p className="mb-5 flex items-start gap-2 text-xs text-gold-100/45">
         <Lock className="mt-0.5 h-3.5 w-3.5 shrink-0" />
-        Os votos são guardados apenas como totais por candidato. Não é possível saber em quem cada membro votou.
+        Os votos são guardados apenas como totais por candidato. Não é possível saber em quem cada código votou.
       </p>
 
-      <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
+      {hidden && (
+        <ResultsHidden phase={phase} closesAt={phase === 1 ? (overview?.settings.phase1_closes_at ?? null) : (overview?.settings.phase2_closes_at ?? null)} />
+      )}
+
+      <div className={cn('grid grid-cols-1 gap-4 xl:grid-cols-2', hidden && 'hidden')}>
         {categories.map((c) => {
           const list = byCategory[c.id] ?? []
           const total = list.reduce((a, r) => a + r.votes, 0)
@@ -112,7 +119,7 @@ export function ResultsAdminPage() {
         })}
       </div>
 
-      <div className="mt-6 flex flex-wrap gap-4 text-xs text-gold-100/50">
+      <div className={cn('mt-6 flex flex-wrap gap-4 text-xs text-gold-100/50', hidden && 'hidden')}>
         <Legend className="bg-gradient-to-r from-gold-700 to-gold-300" label={phase === 1 ? 'Passa à 2ª fase' : 'Finalista'} />
         {phase === 2 && <Legend className="bg-gradient-to-r from-gold-600 to-gold-50" label="Vencedor" />}
         {phase === 1 && <Legend className="bg-gradient-to-r from-cvp-700 to-cvp-400" label="Empate na última vaga" />}

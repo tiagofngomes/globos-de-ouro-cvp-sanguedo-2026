@@ -2,6 +2,7 @@ import { AlertTriangle, CheckCircle2, RotateCcw, Sparkles, Star } from 'lucide-r
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useApi } from '../../api/ApiContext'
 import type { Category, ProposalRow, ResultRow } from '../../api/types'
+import { ResultsHidden } from '../../components/admin/ResultsHidden'
 import { AdminPageTitle, Panel, useAdmin } from '../../components/admin/AdminLayout'
 import { CategoryMedallion } from '../../components/ui/CategoryIcon'
 import { FullPageLoader, Spinner, useToast } from '../../components/ui/Feedback'
@@ -138,13 +139,16 @@ export function FinalistsPage() {
         }
       />
       {phase1Open && (
-        <p className="mb-5 rounded-2xl border border-gold-400/20 bg-gold-400/5 p-4 text-sm text-gold-100/70">
-          A 1ª fase ainda está a decorrer. Esta é uma pré-visualização: o apuramento só pode ser confirmado depois do fecho. Se não houver empates, a 2ª fase
-          abre sozinha na data marcada.
-        </p>
+        <>
+          <ResultsHidden phase={1} closesAt={overview.settings.phase1_closes_at} />
+          <p className="mt-4 text-center text-xs text-gold-100/50">
+            Depois do fecho, se não houver empates, os finalistas são apurados sozinhos e a 2ª fase abre na data marcada. Havendo empates, escolhem aqui quem
+            passa.
+          </p>
+        </>
       )}
 
-      <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
+      <div className={cn('grid grid-cols-1 gap-4 xl:grid-cols-2', phase1Open && 'hidden')}>
         {categories.map((c) => {
           const list = byCat[c.id] ?? []
           const hasTie = list.some((p) => p.status === 'tied')

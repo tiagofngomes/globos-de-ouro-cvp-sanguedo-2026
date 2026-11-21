@@ -57,7 +57,7 @@ function seedState(): DemoState {
   }))
   const members: Member[] = []
   for (let n = DEMO_MEMBER_RANGE.from; n <= DEMO_MEMBER_RANGE.to; n++) {
-    members.push({ id: `mem-${n}`, member_number: String(n), active: true, has_pin: false, created_at: '2026-11-20T00:00:00Z' })
+    members.push({ id: `mem-${n}`, member_number: String(n), active: true, created_at: '2026-11-20T00:00:00Z', voted_phase1: false, voted_phase2: false })
   }
 
   // Resultados simulados: 68 membros (1033–1100) já votaram na 1.ª fase.
@@ -176,13 +176,19 @@ export function setDemoPhase(phase: Phase) {
   save()
 }
 
-export const DEMO_HINT = `Na demonstração, use um número de membro entre ${DEMO_MEMBER_RANGE.from} e ${DEMO_MEMBER_RANGE.to}.`
+export const DEMO_HINT = `Na demonstração, use um código entre ${DEMO_MEMBER_RANGE.from} e ${DEMO_MEMBER_RANGE.to}.`
 
 // ------------------------------------------------------------- helpers -----
 
 const delay = (ms = 350) => new Promise((r) => setTimeout(r, ms + Math.random() * 200))
 const activeCategories = () => state.categories.filter((c) => c.active !== false).sort((a, b) => a.sort_order - b.sort_order)
 const candidateName = (id: string) => state.candidates.find((c) => c.id === id)?.name ?? 'Desconhecido'
+
+/** Como no servidor: os resultados de uma fase só ficam visíveis depois de essa fase fechar. */
+function resultsVisible(phase: 1 | 2) {
+  if (phase === 1) return !['pre_voting', 'phase1'].includes(state.phase) && !(state.phase === 'paused' && !state.settings.finalists_confirmed)
+  return state.phase === 'awaiting_gala' || state.phase === 'results'
+}
 
 function hasPhase2Votes() {
   return Object.keys(state.tallies).some((k) => k.startsWith('2|'))
@@ -259,6 +265,7 @@ export function createDemoApi(): VotingApi {
         gala_at: s.gala_at,
         finalists_per_category: s.finalists_per_category,
         categories: activeCategories(),
+        codes_numeric: state.members.filter((m) => m.active).every((m) => /^[0-9]+$/.test(m.member_number)),
       }
     },
 
@@ -362,12 +369,14 @@ export function createDemoApi(): VotingApi {
           candidates_active: state.candidates.filter((c) => c.active).length,
           categories_active: activeCategories().length,
           finalists_count: Object.values(state.finalists).flat().length,
-          ties: state.settings.finalists_confirmed ? [] : tiesList(),
+          results_visible: { phase1: resultsVisible(1), phase2: resultsVisible(2) },
+          ties: state.settings.finalists_confirmed || !resultsVisible(1) ? [] : tiesList(),
         }
       },
 
       async results(phase): Promise<ResultRow[]> {
         await delay(150)
+        if (!resultsVisible(phase)) return []
         const rows: ResultRow[] = []
         for (const cat of activeCategories()) {
           const fins = state.finalists[cat.id] ?? []
@@ -383,7 +392,7 @@ export function createDemoApi(): VotingApi {
 
       async finalistProposal() {
         await delay(150)
-        return computeProposal()
+        return resultsVisible(1) ? computeProposal() : []
       },
 
       async autoFinalize() {
@@ -509,7 +518,9 @@ export function createDemoApi(): VotingApi {
       },
 
       async listMembers() {
-        return [...state.members]
+        return state.members
+          .map((m) => ({ ...m, voted_phase1: Boolean(state.voted[m.id]?.includes(1)), voted_phase2: Boolean(state.voted[m.id]?.includes(2)) }))
+          .sort((a, b) => a.member_number.localeCompare(b.member_number, 'pt', { numeric: true }))
       },
       async importMembers(numbers) {
         let inserted = 0
@@ -518,7 +529,14 @@ export function createDemoApi(): VotingApi {
           const num = normalizeMemberNumber(raw)
           if (!num || seen.has(num)) continue
           seen.add(num)
-          state.members.push({ id: `mem-x${Date.now()}-${inserted}`, member_number: num, active: true, has_pin: false, created_at: new Date().toISOString() })
+          state.members.push({
+            id: `mem-x${Date.now()}-${inserted}`,
+            member_number: num,
+            active: true,
+            created_at: new Date().toISOString(),
+            voted_phase1: false,
+            voted_phase2: false,
+          })
           inserted++
         }
         save()
@@ -529,13 +547,8 @@ export function createDemoApi(): VotingApi {
         save()
         return { ok: true }
       },
-      async setMemberPin(id, pin) {
-        state.members = state.members.map((m) => (m.id === id ? { ...m, has_pin: Boolean(pin) } : m))
-        save()
-        return { ok: true }
-      },
       async deleteMember(id) {
-        if (state.voted[id]?.length) return { ok: false, error: 'Este membro já votou: desative-o em vez de o apagar.' }
+        if (state.voted[id]?.length) return { ok: false, error: 'Este código já foi utilizado: desative-o em vez de o apagar.' }
         state.members = state.members.filter((m) => m.id !== id)
         save()
         return { ok: true }

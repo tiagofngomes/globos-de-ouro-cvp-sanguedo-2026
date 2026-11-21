@@ -66,6 +66,7 @@ await asAnon()
 let st = await val(`select public.get_public_state()`)
 ok(st.phase === 'phase1', `fase atual = phase1 (${st.phase})`)
 ok(st.categories.length === 6, 'estado público inclui as categorias')
+ok(st.codes_numeric === true, 'códigos só com números: teclado numérico')
 
 // ---- anon sem acesso direto
 for (const t of ['members', 'vote_tallies', 'vote_participation', 'candidates', 'event_settings']) {
@@ -170,7 +171,8 @@ ok(await tryq(`delete from public.candidates where name = 'Teste Temporário'`),
 ok(await tryq(`insert into public.members (member_number) values ('T-1')`), 'admin cria membro')
 ok(await tryq(`update public.members set active = false where member_number = 'T-1'`), 'admin desativa membro')
 ok(await tryq(`delete from public.members where member_number = 'T-1'`), 'admin apaga membro sem votos')
-ok((await tryq(`select * from public.vote_tallies`)) && (await tryq(`select * from public.finalists`)), 'admin lê totais e finalistas')
+ok(!(await tryq(`select * from public.vote_tallies`)), 'admin NÃO lê os totais diretamente (só pelas funções)')
+ok(await tryq(`select * from public.finalists`), 'admin lê finalistas')
 ok(!(await tryq(`select * from public.vote_participation`)), 'admin NÃO lê quem votou (vote_participation)')
 await asAnon('10.2.2.2')
 s = await val(`select public.start_voting_session('1005')`)
@@ -205,6 +207,17 @@ ok(blocked, 'utilizador autenticado sem ser admin não vê membros')
 await asUser(adminId)
 const ov = await val(`select public.admin_overview()`)
 ok(ov.phase1_voters === 2 && ov.members_active === 30, `overview: ${ov.phase1_voters} votantes, ${ov.members_active} membros`)
+// com a 1ª fase aberta: vê-se a participação, mas não os resultados
+ok(ov.results_visible.phase1 === false && ov.results_visible.phase2 === false, 'resultados marcados como escondidos com a fase aberta')
+ok((await db.query(`select * from public.admin_results(1)`)).rows.length === 0, 'admin_results(1) não devolve nada com a 1ª fase aberta')
+ok((await db.query(`select * from public.admin_finalist_proposal()`)).rows.length === 0, 'proposta de finalistas escondida com a 1ª fase aberta')
+const lm = (await db.query(`select * from public.admin_list_members()`)).rows
+ok(
+  lm.length === 30 && lm.filter((m) => m.voted_phase1).length === 2 && lm.every((m) => !m.voted_phase2),
+  'lista de códigos indica os 2 já utilizados na 1ª fase',
+)
+ok(!Object.keys(lm[0]).some((k) => /cand|categ|vote(?!d_)/.test(k)), 'lista de códigos não tem qualquer informação sobre os votos')
+ok(lm[0].member_number === '1001' && lm[9].member_number === '1010', 'códigos ordenados')
 const imp = await val(`select public.admin_import_members(array['2001',' 2002 ','2001','1001',''])`)
 ok(imp.inserted === 2, `importação de membros ignora duplicados (${JSON.stringify(imp)})`)
 const impc = await val(`select public.admin_import_candidates(array['Zé Novo','ze novo','Ana Sofia Martins','X'])`)
@@ -287,9 +300,11 @@ ok(pub.published === false, 'resultados privados durante a votação')
 await asUser(adminId)
 r = await val(`select public.admin_set_finalists($1::jsonb)`, [JSON.stringify(sel)])
 ok(r.ok === false, 'finalistas bloqueados depois de existirem votos na final')
-const res2 = (await db.query(`select * from public.admin_results(2)`)).rows
-ok(res2.length === 30 && res2.filter((x) => x.votes === 1).length === 6, 'resultados da final: todos os finalistas, 6 com 1 voto')
+ok((await db.query(`select * from public.admin_results(2)`)).rows.length === 0, 'resultados da 2ª fase escondidos enquanto está aberta')
+ok((await db.query(`select * from public.admin_results(1)`)).rows.length > 0, 'resultados da 1ª fase visíveis depois do fecho')
 await db.exec(`update public.event_settings set phase2_closes_at = now() - interval '1 minute' where id;`)
+const res2 = (await db.query(`select * from public.admin_results(2)`)).rows
+ok(res2.length === 30 && res2.filter((x) => x.votes === 1).length === 6, 'depois do fecho: resultados da 2ª fase com todos os finalistas, 6 com 1 voto')
 await asAnon('10.5.5.5')
 st = await val(`select public.get_public_state()`)
 ok(st.phase === 'awaiting_gala', `após fecho: ${st.phase}`)

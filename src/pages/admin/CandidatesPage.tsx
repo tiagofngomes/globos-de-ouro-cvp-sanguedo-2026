@@ -67,8 +67,8 @@ export function CandidatesPage() {
   return (
     <div>
       <AdminPageTitle
-        title="Nomeados"
-        subtitle={`Todos os membros que podem ser nomeados. São estes os nomes que aparecem na votação. (${list.filter((c) => c.active).length} ativos)`}
+        title="Candidatos"
+        subtitle={`Todos os membros que podem receber votos. São estes os nomes que aparecem na votação. (${list.filter((c) => c.active).length} ativos)`}
         actions={
           <button onClick={() => setImportOpen(true)} className="btn-gold btn-sm">
             <Upload className="h-4 w-4" /> Importar nomes
@@ -141,7 +141,7 @@ export function CandidatesPage() {
           setImportOpen(false)
           load()
         }}
-        title="Importar nomeados"
+        title="Importar candidatos"
         mode="names"
         hint="Um nome por linha (de um ficheiro CSV é usada a primeira coluna). Nomes repetidos (mesmo com acentos ou maiúsculas diferentes) são ignorados."
         onImport={(items) => api.admin.importCandidates(items)}

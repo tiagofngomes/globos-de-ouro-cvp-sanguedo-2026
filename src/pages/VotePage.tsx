@@ -23,10 +23,10 @@ type Session = Extract<VotingSession, { ok: true }>
 type Step = 'access' | 'ballot' | 'review' | 'done' | 'already'
 
 const SUBMIT_ERRORS: Record<SubmitError, string> = {
-  session_expired: 'A sua sessão expirou por inatividade. Introduza novamente o número de membro. As suas escolhas foram guardadas.',
+  session_expired: 'A sua sessão expirou por inatividade. Introduza novamente o seu código de voto. As suas escolhas foram guardadas.',
   voting_closed: 'A votação encerrou entretanto. Infelizmente o voto já não pôde ser registado.',
   invalid_ballot: 'Há uma escolha inválida. Reveja as categorias e tente novamente.',
-  already_voted: 'Este número de membro já votou nesta fase.',
+  already_voted: 'Este código já foi utilizado nesta fase.',
   network: 'Não foi possível contactar o servidor. Verifique a internet e tente novamente. O voto ainda não foi registado.',
 }
 
@@ -81,6 +81,7 @@ export function VotePage() {
     return (
       <AccessStep
         phase={votingPhase}
+        numeric={state?.codes_numeric ?? true}
         notice={accessNotice}
         onAlreadyVoted={() => setStep('already')}
         onSession={(s) => {
@@ -226,7 +227,7 @@ function ThankYou({ phase, phase2OpensAt }: { phase: 'phase1' | 'phase2'; phase2
             ? `Os seus votos da 1ª fase foram registados com sucesso. Os cinco mais votados de cada categoria seguem para a 2ª fase, que abre a ${formatDateTime(phase2OpensAt)}.`
             : 'O seu voto na 2ª fase foi registado com sucesso. Os vencedores serão revelados na noite da gala!'}
         </p>
-        <p className="mt-3 text-xs text-gold-100/40">O seu voto é anónimo: não fica associado ao seu número de membro.</p>
+        <p className="mt-3 text-xs text-gold-100/40">O seu voto é anónimo: não fica associado ao seu código.</p>
         <Link to={path('/')} className="btn-ghost mt-8">
           Voltar ao início
         </Link>
@@ -244,7 +245,7 @@ function AlreadyVoted() {
       </div>
       <h1 className="mt-6 font-display text-3xl text-gold-50">Já votou nesta fase</h1>
       <p className="mt-3 text-sm text-gold-50/60">
-        Este número de membro já tem o voto registado. Cada membro vota uma única vez em cada fase. Obrigado pela participação!
+        Este código já tem o voto registado. Cada código vota uma única vez em cada fase. Obrigado pela participação!
       </p>
       <Link to={path('/')} className="btn-ghost mt-8">
         Voltar ao início

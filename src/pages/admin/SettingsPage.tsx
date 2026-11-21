@@ -67,6 +67,14 @@ export function SettingsPage() {
     }
     if (new Date(patch.phase1_closes_at!) <= new Date(patch.phase1_opens_at!)) return toast('O fecho da 1ª fase tem de ser depois da abertura.', 'error')
     if (new Date(patch.phase2_opens_at!) < new Date(patch.phase1_closes_at!)) return toast('A 2ª fase não pode abrir antes do fecho da 1ª fase.', 'error')
+    const gapHours = (new Date(patch.phase2_opens_at!).getTime() - new Date(patch.phase1_closes_at!).getTime()) / 3_600_000
+    if (
+      gapHours < 24 &&
+      !window.confirm(
+        'A 2ª fase abre menos de 24 horas depois do fecho da 1ª. Recomendamos pelo menos um dia de pausa, para verem os resultados e resolverem empates com calma. Guardar mesmo assim?',
+      )
+    )
+      return
     setSaving(true)
     await update(patch, 'Datas guardadas.')
     setSaving(false)

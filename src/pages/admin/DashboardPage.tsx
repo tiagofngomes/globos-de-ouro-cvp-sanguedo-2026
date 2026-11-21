@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useApi, usePath } from '../../api/ApiContext'
 import type { Category, ResultRow } from '../../api/types'
+import { ResultsHidden } from '../../components/admin/ResultsHidden'
 import { AdminPageTitle, Panel, PhaseBadge, useAdmin } from '../../components/admin/AdminLayout'
 import { RingStat } from '../../components/charts/BarChart'
 import { CategoryMedallion } from '../../components/ui/CategoryIcon'
@@ -69,10 +70,10 @@ export function DashboardPage() {
 
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
         <Panel>
-          <RingStat value={pct(o.phase1_voters, o.members_active)} label="Participação · 1ª fase" sub={`${o.phase1_voters} de ${o.members_active} membros`} />
+          <RingStat value={pct(o.phase1_voters, o.members_active)} label="Participação · 1ª fase" sub={`${o.phase1_voters} de ${o.members_active} códigos`} />
         </Panel>
         <Panel>
-          <RingStat value={pct(o.phase2_voters, o.members_active)} label="Participação · 2ª fase" sub={`${o.phase2_voters} de ${o.members_active} membros`} />
+          <RingStat value={pct(o.phase2_voters, o.members_active)} label="Participação · 2ª fase" sub={`${o.phase2_voters} de ${o.members_active} códigos`} />
         </Panel>
         <Panel className="md:col-span-2 xl:col-span-1">
           {nextDeadline ? (
@@ -92,12 +93,12 @@ export function DashboardPage() {
       <div className="mt-4 grid grid-cols-2 gap-3 lg:grid-cols-4">
         <Stat
           icon={Users}
-          label="Votantes"
+          label="Eleitores"
           value={o.members_active}
           sub={o.members_total !== o.members_active ? `${o.members_total} no total` : undefined}
           to={path('/admin/membros')}
         />
-        <Stat icon={UserRound} label="Nomeados" value={o.candidates_active} to={path('/admin/candidatos')} />
+        <Stat icon={UserRound} label="Candidatos" value={o.candidates_active} to={path('/admin/candidatos')} />
         <Stat icon={Tags} label="Categorias" value={o.categories_active} to={path('/admin/categorias')} />
         <Stat
           icon={Vote}
@@ -117,27 +118,31 @@ export function DashboardPage() {
           </Link>
         }
       >
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
-          {categories
-            .filter((c) => c.active !== false)
-            .map((c) => {
-              const rows = leaders.filter((r) => r.category_id === c.id).sort((a, b) => b.votes - a.votes)
-              const top = rows[0]
-              const total = rows.reduce((a, r) => a + r.votes, 0)
-              return (
-                <div key={c.id} className="flex items-center gap-3 rounded-2xl border border-white/5 bg-white/[.02] p-3">
-                  <CategoryMedallion icon={c.icon} size="sm" />
-                  <div className="min-w-0 flex-1">
-                    <div className="truncate text-[11px] uppercase tracking-[0.12em] text-gold-300/70">{c.name}</div>
-                    <div className="truncate text-sm text-gold-50">
-                      {top && top.votes > 0 ? top.candidate_name : <span className="text-gold-100/35">Sem votos</span>}
+        {!o.results_visible[livePhase === 1 ? 'phase1' : 'phase2'] ? (
+          <ResultsHidden compact phase={livePhase} closesAt={livePhase === 1 ? s.phase1_closes_at : s.phase2_closes_at} />
+        ) : (
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
+            {categories
+              .filter((c) => c.active !== false)
+              .map((c) => {
+                const rows = leaders.filter((r) => r.category_id === c.id).sort((a, b) => b.votes - a.votes)
+                const top = rows[0]
+                const total = rows.reduce((a, r) => a + r.votes, 0)
+                return (
+                  <div key={c.id} className="flex items-center gap-3 rounded-2xl border border-white/5 bg-white/[.02] p-3">
+                    <CategoryMedallion icon={c.icon} size="sm" />
+                    <div className="min-w-0 flex-1">
+                      <div className="truncate text-[11px] uppercase tracking-[0.12em] text-gold-300/70">{c.name}</div>
+                      <div className="truncate text-sm text-gold-50">
+                        {top && top.votes > 0 ? top.candidate_name : <span className="text-gold-100/35">Sem votos</span>}
+                      </div>
                     </div>
+                    {top && top.votes > 0 && <div className="text-right text-xs tabular-nums text-gold-200">{Math.round(pct(top.votes, total))}%</div>}
                   </div>
-                  {top && top.votes > 0 && <div className="text-right text-xs tabular-nums text-gold-200">{Math.round(pct(top.votes, total))}%</div>}
-                </div>
-              )
-            })}
-        </div>
+                )
+              })}
+          </div>
+        )}
       </Panel>
 
       <Panel className="mt-4" title="Calendário">

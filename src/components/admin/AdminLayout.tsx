@@ -45,8 +45,8 @@ const NAV = [
   { to: '', label: 'Painel', icon: LayoutDashboard, end: true },
   { to: '/resultados', label: 'Resultados', icon: BarChart3 },
   { to: '/finalistas', label: 'Finalistas', icon: Trophy },
-  { to: '/membros', label: 'Votantes', icon: Users },
-  { to: '/candidatos', label: 'Nomeados', icon: UserRound },
+  { to: '/membros', label: 'Eleitores', icon: Users },
+  { to: '/candidatos', label: 'Candidatos', icon: UserRound },
   { to: '/categorias', label: 'Categorias', icon: Tags },
   { to: '/definicoes', label: 'Datas e fases', icon: CalendarCog },
 ]
@@ -189,7 +189,7 @@ export function AdminPageTitle({ title, subtitle, actions }: { title: string; su
         <h1 className="font-display text-2xl text-gold-50 sm:text-3xl">{title}</h1>
         {subtitle && <p className="mt-1 text-sm text-gold-100/55">{subtitle}</p>}
       </div>
-      {actions && <div className="flex flex-wrap gap-2">{actions}</div>}
+      {actions && <div className="flex shrink-0 flex-wrap gap-2">{actions}</div>}
     </div>
   )
 }

@@ -13,12 +13,12 @@ Pensada primeiro para o telemóvel, com estética de gala (preto, dourado e verm
 | Área | O que faz |
 | --- | --- |
 | Página inicial | Título animado, troféu, holofotes, contagem decrescente sincronizada com o servidor, calendário das fases e cartões das 6 categorias |
-| Votação | Entrada com o número de membro (“convite”), uma categoria de cada vez, pesquisa com autocomplete (ignora maiúsculas e acentos), lista completa A–Z, progresso, revisão e submissão única |
+| Votação | Entrada com o código de voto (“convite”), uma categoria de cada vez, pesquisa com autocomplete (ignora maiúsculas e acentos), lista completa A–Z, progresso, revisão e submissão única |
 | Grande Final | Só os finalistas de cada categoria, em cartões de toque |
 | Resultados | Página pública dos vencedores, só depois de o administrador os publicar (sem números de votos) |
-| Administração | Painel com participação em tempo real, gráficos de barras por categoria, apuramento e resolução de empates, membros, candidatos, categorias, datas, suspensão/encerramento, publicação e exportação CSV |
+| Administração | Painel com participação em tempo real (os resultados de cada fase só ficam visíveis depois do fecho), gráficos de barras por categoria, apuramento e resolução de empates, eleitores (códigos de voto), candidatos, categorias, datas, suspensão/encerramento, publicação e exportação CSV |
 | Modo Gala | Apresentação final em ecrã completo: categoria → nomeados → gráfico “a brincar” com rufar de tambores (as barras sobem e descem para enganar o público) → prato e bombo: o gráfico para nos valores reais e destaca o vencedor → 3 segundos depois, nome do vencedor em grande (fanfarra de metais + confetis) → resumo final |
-| Demonstração | `#/demo` — 20 candidatos fictícios, 100 números de teste (1001–1100) e resultados simulados, tudo no navegador e totalmente separado da votação real |
+| Demonstração | `#/demo` — 20 candidatos fictícios, 100 códigos de teste (1001 a 1100) e resultados simulados, tudo no navegador e totalmente separado da votação real |
 
 ### Fases (calculadas sempre pelo servidor)
 
@@ -37,14 +37,14 @@ Pensada primeiro para o telemóvel, com estética de gala (preto, dourado e verm
 
 ## 🔒 Segurança e anonimato
 
-- **Os votos não estão ligados a quem votou.** A tabela `vote_participation` regista apenas *que* um número votou numa fase; a tabela `vote_tallies` guarda apenas **totais por candidato**. Não existe boletim individual nem carimbo temporal que permita correlacionar. Nem os administradores conseguem ver em quem alguém votou, nem sequer *quem* já votou — apenas os totais.
+- **Os votos não estão ligados a quem votou.** A tabela `vote_participation` regista apenas *que* um código votou numa fase; a tabela `vote_tallies` guarda apenas **totais por candidato**. Não existe boletim individual nem carimbo temporal que permita correlacionar. Nem os administradores conseguem ver em quem alguém votou. O painel mostra que códigos já foram utilizados, por isso **os totais de uma fase só ficam visíveis depois de essa fase fechar** (o servidor não os devolve antes), para não ser possível deduzir votos comparando os totais com os códigos usados.
 - **Voto único por fase**, garantido pela chave primária `(member_id, phase)` dentro de uma transação. Pedidos simultâneos não conseguem votar duas vezes.
 - **Datas e regras validadas no servidor** (`now()` do Postgres). O relógio do telemóvel nunca decide nada.
 - **Limitação de tentativas:** 10 tentativas falhadas por IP, ou 5 por número, em 15 minutos, bloqueiam o acesso temporariamente.
-- **Sessões temporárias:** o número de membro dá acesso a um token aleatório (guardado apenas em hash) válido 45 minutos.
-- **Preparado para autenticação adicional:** cada membro pode ter um **PIN opcional** (guardado com bcrypt). Se definido, passa a ser pedido ao votar.
-- **Nada sensível no repositório:** números de membro e credenciais vivem apenas no Supabase. A chave `anon` é pública por natureza; a proteção está nas políticas RLS e nas funções.
-- Categorias, candidatos e membros com votos **não podem ser apagados** (apenas desativados).
+- **Códigos de voto:** cada código (número de membro, 1, 2, 3… ou um código à escolha) vota uma vez por fase. Um código já utilizado não pode ser apagado, apenas desativado.
+- **Sessões temporárias:** o código de voto dá acesso a um token aleatório (guardado apenas em hash) válido 45 minutos.
+- **Nada sensível no repositório:** códigos de voto e credenciais vivem apenas no Supabase. A chave `anon` é pública por natureza; a proteção está nas políticas RLS e nas funções.
+- Categorias, candidatos e códigos com votos **não podem ser apagados** (apenas desativados).
 
 ---
 
@@ -90,9 +90,9 @@ Sem as variáveis definidas, o site publicado funciona apenas em **modo demonstr
 
 No painel (`…/#/admin`):
 
-1. **Membros → Importar lista:** cole ou carregue o CSV com os números de membro.
+1. **Eleitores → Importar lista:** cole ou carregue a lista de códigos de voto (por exemplo, os números de membro).
 2. **Candidatos → Importar nomes:** carregue a lista real e desative ou apague os fictícios.
-3. **Datas e fases:** confirme as datas. Na zona de perigo pode apagar votos de testes.
+3. **Datas e fases:** confirme as datas (recomenda-se pelo menos um dia de pausa entre o fecho da 1ª fase e a abertura da 2ª, para verem os resultados e resolverem empates). Na zona de perigo pode apagar votos de testes.
 
 ---
 
@@ -120,7 +120,7 @@ No painel (`…/#/admin`):
 ```bash
 npm test          # pesquisa inteligente de nomes (acentos, maiúsculas, várias palavras)
 npm run test:db   # base de dados num Postgres real (PGlite): voto único, anonimato,
-                  # limitação de tentativas, PIN, empates, fases, permissões, resultados
+                  # limitação de tentativas, empates, resultados escondidos com a fase aberta, fases, permissões, resultados
 npm run build     # verificação de tipos + compilação de produção
 ```
 

@@ -229,13 +229,13 @@ function Categories({ categories }: { categories: Category[] }) {
 
 function HowItWorks() {
   const items = [
-    { icon: Hash, title: 'Número de membro', text: 'Entre com o seu número de membro da CVP. Sem contas, sem palavras-passe.' },
+    { icon: Hash, title: 'Código de voto', text: 'Entre com o código de voto que recebeu. Sem contas, sem palavras-passe.' },
     { icon: MousePointerClick, title: 'Escolha', text: 'Um colega por categoria. Comece a escrever o nome e nós encontramos.' },
     { icon: ShieldCheck, title: 'Confirme', text: 'Reveja as suas escolhas e submeta tudo de uma só vez.' },
     {
       icon: Lock,
       title: 'Voto fechado',
-      text: 'Depois de submeter, os votos já não podem ser alterados e o seu número fica desativado até à 2ª fase, onde volta a votar.',
+      text: 'Depois de submeter, os votos já não podem ser alterados e o seu código fica desativado até à 2ª fase, onde volta a votar.',
     },
   ]
   return (
@@ -257,7 +257,7 @@ function HowItWorks() {
       <div className="mx-auto mt-12 flex max-w-2xl items-start gap-3 rounded-2xl border border-l-2 border-white/10 border-l-cvp-500/70 bg-white/[.03] p-5 text-sm text-gold-50/70">
         <EyeOff className="mt-0.5 h-4 w-4 shrink-0 text-gold-300" />
         <p>
-          <strong className="text-gold-50">O seu voto é anónimo.</strong> O sistema regista apenas que o seu número já votou, nunca em quem votou. Nem os
+          <strong className="text-gold-50">O seu voto é anónimo.</strong> O sistema regista apenas que o seu código já votou, nunca em quem votou. Nem os
           administradores conseguem ver as escolhas de cada pessoa.
         </p>
       </div>
