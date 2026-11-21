@@ -106,16 +106,19 @@ export function CategoriesPage() {
       )}
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
         {[...list].sort(byOrder).map((c) => (
-          <Panel key={c.id} className={cn(c.active === false && 'opacity-50')}>
+          <Panel key={c.id} className={cn('flex h-full flex-col', c.active === false && 'opacity-50')}>
             <div className="flex items-start gap-4">
               <CategoryMedallion icon={c.icon} />
               <div className="min-w-0 flex-1">
                 <div className="text-[10px] uppercase tracking-[0.2em] text-gold-400/60">#{c.sort_order}</div>
-                <h3 className="font-display text-lg leading-tight text-gold-50">{c.name}</h3>
+                <h3 className="line-clamp-3 h-[3.75em] font-display text-lg leading-tight text-gold-50" title={c.name}>
+                  {c.name}
+                </h3>
               </div>
             </div>
-            <p className="mt-3 line-clamp-3 text-sm text-gold-50/55">{c.description}</p>
-            <div className="mt-4 flex items-center justify-between">
+            {/* tamanho fixo: todos os cartões iguais; texto maior acaba em "…" (lê-se tudo em Editar) */}
+            <p className="mt-3 line-clamp-3 h-[3.75rem] text-sm leading-5 text-gold-50/55">{c.description}</p>
+            <div className="mt-auto flex items-center justify-between pt-4">
               <button
                 onClick={() => toggleActive(c)}
                 className={cn(
