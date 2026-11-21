@@ -8,8 +8,8 @@ import { FullPageLoader, Modal, useConfirm, useToast } from '../../components/ui
 import { cn } from '../../lib/cn'
 
 /**
- * Eleitores: os códigos de voto. Um código pode ser o número de membro, 1, 2, 3…
- * ou um código à escolha. Cada código vota uma vez por fase; depois de usado
+ * Eleitores: os códigos de voto (números e/ou letras, por exemplo 1, 2, 3 ou
+ * K7P2QX). Cada código vota uma vez por fase; depois de usado
  * aparece como "Utilizado" (nunca se sabe em quem votou).
  */
 export function MembersPage() {
@@ -103,7 +103,7 @@ export function MembersPage() {
       <div className="mb-4 flex items-start gap-3 rounded-2xl border border-gold-400/20 bg-gold-400/5 p-4 text-xs leading-relaxed text-gold-100/70">
         <ShieldAlert className="h-4 w-4 shrink-0 text-gold-400" />
         <p>
-          O código pode ser o número de membro, um número simples (1, 2, 3…) ou um código à escolha. Depois de usado numa fase aparece como{' '}
+          Cada código é único e pode ter números e letras (por exemplo 1, 2, 3 ou K7P2QX). Depois de usado numa fase aparece como{' '}
           <strong className="text-gold-100">Utilizado</strong> e fica fechado até à fase seguinte. Nunca é possível saber em quem um código votou, e os
           resultados só ficam visíveis quando a fase fecha. Um código já utilizado não pode ser apagado, apenas desativado.
         </p>
@@ -178,7 +178,9 @@ export function MembersPage() {
             maxLength={32}
             className="input-gala text-center font-display text-xl tracking-[0.2em]"
           />
-          <p className="mt-2 text-xs text-gold-100/50">Pode ser o número de membro, um número simples ou um código à escolha. Espaços são ignorados.</p>
+          <p className="mt-2 text-xs text-gold-100/50">
+            Cada código é único: não é possível adicionar um código que já existe. Maiúsculas e espaços não contam (k7p 2qx é o mesmo que K7P2QX).
+          </p>
           <div className="mt-5 flex justify-end gap-2">
             <button type="button" onClick={() => setAddOpen(false)} className="btn-ghost btn-sm">
               Cancelar
@@ -198,7 +200,7 @@ export function MembersPage() {
         }}
         title="Importar códigos de voto"
         mode="numbers"
-        hint="Cole os códigos (um por linha, ou separados por vírgulas ou ponto e vírgula) ou carregue um ficheiro. Duplicados são ignorados. Nunca guarde estes ficheiros no repositório."
+        hint="Cole os códigos (um por linha, ou separados por vírgulas ou ponto e vírgula) ou carregue um ficheiro. Códigos repetidos (mesmo com maiúsculas ou espaços diferentes) são ignorados. Nunca guarde estes ficheiros no repositório."
         onImport={(items) => api.admin.importMembers(items)}
       />
     </div>

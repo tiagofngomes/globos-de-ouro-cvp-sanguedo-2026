@@ -41,7 +41,7 @@ Pensada primeiro para o telemóvel, com estética de gala (preto, dourado e verm
 - **Voto único por fase**, garantido pela chave primária `(member_id, phase)` dentro de uma transação. Pedidos simultâneos não conseguem votar duas vezes.
 - **Datas e regras validadas no servidor** (`now()` do Postgres). O relógio do telemóvel nunca decide nada.
 - **Limitação de tentativas:** 10 tentativas falhadas por IP, ou 5 por número, em 15 minutos, bloqueiam o acesso temporariamente.
-- **Códigos de voto:** cada código (número de membro, 1, 2, 3… ou um código à escolha) vota uma vez por fase. Um código já utilizado não pode ser apagado, apenas desativado.
+- **Códigos de voto:** cada código (números e/ou letras, por exemplo 1, 2, 3 ou K7P2QX) é único e vota uma vez por fase. Um código já utilizado não pode ser apagado, apenas desativado.
 - **Sessões temporárias:** o código de voto dá acesso a um token aleatório (guardado apenas em hash) válido 45 minutos.
 - **Nada sensível no repositório:** códigos de voto e credenciais vivem apenas no Supabase. A chave `anon` é pública por natureza; a proteção está nas políticas RLS e nas funções.
 - Categorias, candidatos e códigos com votos **não podem ser apagados** (apenas desativados).
@@ -90,7 +90,7 @@ Sem as variáveis definidas, o site publicado funciona apenas em **modo demonstr
 
 No painel (`…/#/admin`):
 
-1. **Eleitores → Importar lista:** cole ou carregue a lista de códigos de voto (por exemplo, os números de membro).
+1. **Eleitores → Importar lista:** cole ou carregue a lista de códigos de voto.
 2. **Candidatos → Importar nomes:** carregue a lista real e desative ou apague os fictícios.
 3. **Datas e fases:** confirme as datas (recomenda-se pelo menos um dia de pausa entre o fecho da 1ª fase e a abertura da 2ª, para verem os resultados e resolverem empates). Na zona de perigo pode apagar votos de testes.
 

@@ -75,7 +75,7 @@ export function CandidatesPage() {
         title="Candidatos"
         subtitle={
           <>
-            Todos os membros que podem receber votos. São estes os nomes que aparecem na votação.
+            Os nomes de quem pode receber votos. São estes os nomes que aparecem na votação.
             <span className="block">({list.filter((c) => c.active).length} ativos)</span>
           </>
         }

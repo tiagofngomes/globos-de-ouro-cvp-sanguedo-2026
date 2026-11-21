@@ -21,7 +21,7 @@ export function downloadFile(filename: string, content: string, type = 'text/csv
 
 /**
  * Lê listas coladas ou ficheiros CSV/TXT: uma entrada por linha.
- * Para números de membro também aceita separadores ; , e tabulação.
+ * Para códigos de voto também aceita separadores ; , e tabulação.
  * Para nomes, usa apenas a primeira coluna de cada linha.
  */
 export function parseList(text: string, mode: 'numbers' | 'names'): string[] {

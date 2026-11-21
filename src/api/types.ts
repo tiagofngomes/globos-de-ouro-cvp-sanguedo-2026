@@ -123,7 +123,7 @@ export interface ProposalRow {
   status: 'qualified' | 'tied' | 'out'
 }
 
-/** Código de voto (pode ser o número de membro, 1, 2, 3… ou um código à escolha). */
+/** Código de voto (números e/ou letras, único). */
 export interface Member {
   id: string
   member_number: string
