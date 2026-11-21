@@ -90,6 +90,20 @@ create table if not exists public.event_settings (
 );
 insert into public.event_settings (id) values (true) on conflict (id) do nothing;
 
+-- As fases nunca se sobrepõem, venha a alteração de onde vier:
+-- abertura da 1ª < fecho da 1ª <= abertura da 2ª < fecho da 2ª (se definido).
+do $$
+begin
+  if not exists (select 1 from pg_constraint where conname = 'event_settings_dates_order') then
+    alter table public.event_settings add constraint event_settings_dates_order check (
+      phase1_opens_at < phase1_closes_at
+      and phase1_closes_at <= phase2_opens_at
+      and (phase2_closes_at is null or phase2_closes_at > phase2_opens_at)
+    );
+  end if;
+end
+$$;
+
 create table if not exists public.categories (
   id          uuid primary key default gen_random_uuid(),
   slug        text not null unique,

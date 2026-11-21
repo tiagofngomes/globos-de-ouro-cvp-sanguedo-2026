@@ -434,7 +434,16 @@ export function createDemoApi(): VotingApi {
 
       async updateSettings(patch) {
         await delay(250)
-        state.settings = { ...state.settings, ...patch }
+        // como no servidor: as fases nunca se sobrepõem
+        const next = { ...state.settings, ...patch }
+        const ms = (v: string | null) => (v ? new Date(v).getTime() : null)
+        if (
+          ms(next.phase1_opens_at)! >= ms(next.phase1_closes_at)! ||
+          ms(next.phase1_closes_at)! > ms(next.phase2_opens_at)! ||
+          (next.phase2_closes_at !== null && ms(next.phase2_closes_at)! <= ms(next.phase2_opens_at)!)
+        )
+          return { ok: false, error: 'As datas estão fora de ordem.' }
+        state.settings = next
         if (patch.results_published !== undefined) {
           if (patch.results_published) {
             if (!hasPhase2Votes() && state.settings.finalists_confirmed) simulatePhase2()

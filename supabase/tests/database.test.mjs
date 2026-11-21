@@ -54,6 +54,30 @@ const asUser = async (uid) => {
   await db.exec(`reset role; select set_config('request.jwt.claim.sub', '${uid}', false); set role authenticated;`)
 }
 
+// ---- datas: as fases nunca se sobrepõem (garantido pela base de dados)
+const badDate = async (sql) => {
+  try {
+    await db.exec(sql)
+    return false
+  } catch (e) {
+    return /dates_order|check constraint/i.test(e.message)
+  }
+}
+ok(
+  await badDate(`update public.event_settings set phase1_closes_at = phase1_opens_at - interval '1 day' where id`),
+  'recusa fecho da 1ª fase antes da abertura',
+)
+ok(
+  await badDate(`update public.event_settings set phase2_opens_at = phase1_closes_at - interval '1 hour' where id`),
+  'recusa 2ª fase a abrir antes do fecho da 1ª',
+)
+ok(
+  await badDate(`update public.event_settings set phase2_closes_at = phase2_opens_at - interval '1 hour' where id`),
+  'recusa fecho da 2ª fase antes da abertura',
+)
+ok(!(await badDate(`update public.event_settings set phase2_closes_at = phase2_opens_at + interval '5 days' where id`)), 'aceita datas pela ordem certa')
+await db.exec(`update public.event_settings set phase2_closes_at = null where id`)
+
 // ---- dados
 await asSuper()
 await db.exec(`insert into public.members (member_number) select g::text from generate_series(1001, 1030) g;`)

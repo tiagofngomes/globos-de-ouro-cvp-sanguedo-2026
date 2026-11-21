@@ -49,6 +49,8 @@ function friendly(error: PostgrestError | Error | null): string {
   if ('code' in error && error.code === '23503') return 'Não é possível apagar: existem votos associados. Desative em vez de apagar.'
   if ('code' in error && error.code === '23505') return 'Já existe um registo com esse valor.'
   if ('code' in error && error.code === '42501') return 'Sem permissões para esta operação.'
+  if ('code' in error && error.code === '23514')
+    return 'As datas estão fora de ordem: a 1ª fase tem de fechar depois de abrir, a 2ª fase não pode abrir antes do fecho da 1ª e tem de fechar depois de abrir.'
   return msg || 'Ocorreu um erro.'
 }
 

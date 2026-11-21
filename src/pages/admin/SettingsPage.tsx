@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react'
 import { useApi } from '../../api/ApiContext'
 import type { EventSettings } from '../../api/types'
 import { AdminPageTitle, Panel, PhaseBadge, useAdmin } from '../../components/admin/AdminLayout'
+import { DateTimeField } from '../../components/admin/DateTimeField'
 import { FullPageLoader, Spinner, useConfirm, useToast } from '../../components/ui/Feedback'
 import { isoToLisbonInput, lisbonInputToIso } from '../../lib/format'
 
@@ -10,7 +11,7 @@ type DateKey = 'phase1_opens_at' | 'phase1_closes_at' | 'phase2_opens_at' | 'pha
 
 const DATE_FIELDS: Array<{ key: DateKey; label: string; help: string; optional?: boolean; endOfMinute?: boolean }> = [
   { key: 'phase1_opens_at', label: 'Abertura da 1ª fase', help: 'Início da votação.' },
-  { key: 'phase1_closes_at', label: 'Fecho da 1ª fase', help: 'Inclui o minuto indicado (ex.: 23h59 fecha às 23:59:59).', endOfMinute: true },
+  { key: 'phase1_closes_at', label: 'Fecho da 1ª fase', help: 'Inclui o minuto indicado (23:59 fecha às 23:59:59).', endOfMinute: true },
   { key: 'phase2_opens_at', label: 'Abertura da 2ª fase', help: 'Os finalistas são apurados automaticamente nesta hora, se não houver empates.' },
   {
     key: 'phase2_closes_at',
@@ -33,6 +34,7 @@ export function SettingsPage() {
   const toast = useToast()
   const ask = useConfirm()
   const [form, setForm] = useState<Record<DateKey, string> | null>(null)
+  const [invalid, setInvalid] = useState<Partial<Record<DateKey, boolean>>>({})
   const [perCat, setPerCat] = useState(5)
   const [saving, setSaving] = useState(false)
   const [resetText, setResetText] = useState('')
@@ -53,6 +55,17 @@ export function SettingsPage() {
   if (!overview || !form) return <FullPageLoader />
   const s = overview.settings
 
+  // ordem das datas, verificada enquanto se escreve (o servidor volta a verificar ao guardar)
+  const iso = (k: DateKey) => (form[k] ? lisbonInputToIso(form[k], DATE_FIELDS.find((f) => f.key === k)?.endOfMinute ? 59 : 0) : null)
+  const t = (k: DateKey) => (iso(k) ? new Date(iso(k)!).getTime() : null)
+  const orderErrors: Partial<Record<DateKey, string>> = {}
+  if (t('phase1_opens_at') !== null && t('phase1_closes_at') !== null && t('phase1_closes_at')! <= t('phase1_opens_at')!)
+    orderErrors.phase1_closes_at = 'Tem de ser depois da abertura da 1ª fase.'
+  if (t('phase1_closes_at') !== null && t('phase2_opens_at') !== null && t('phase2_opens_at')! < t('phase1_closes_at')!)
+    orderErrors.phase2_opens_at = 'Não pode ser antes do fecho da 1ª fase.'
+  if (t('phase2_opens_at') !== null && t('phase2_closes_at') !== null && t('phase2_closes_at')! <= t('phase2_opens_at')!)
+    orderErrors.phase2_closes_at = 'Tem de ser depois da abertura da 2ª fase.'
+
   const update = async (patch: Partial<EventSettings>, okMsg: string) => {
     const r = await api.admin.updateSettings(patch)
     toast(r.ok ? okMsg : (r.error ?? 'Erro'), r.ok ? 'success' : 'error')
@@ -60,14 +73,14 @@ export function SettingsPage() {
   }
 
   const saveDates = async () => {
+    if (DATE_FIELDS.some((f) => invalid[f.key])) return toast('Corrija as datas assinaladas a vermelho.', 'error')
+    if (Object.keys(orderErrors).length) return toast('As datas estão fora de ordem. Veja os avisos a vermelho.', 'error')
     const patch: Partial<EventSettings> = { finalists_per_category: perCat }
     for (const f of DATE_FIELDS) {
-      const iso = lisbonInputToIso(form[f.key], f.endOfMinute ? 59 : 0)
-      if (!iso && !f.optional) return toast(`Preencha: ${f.label}.`, 'error')
-      ;(patch as Record<string, unknown>)[f.key] = iso
+      const value = iso(f.key)
+      if (!value && !f.optional) return toast(`Preencha: ${f.label}.`, 'error')
+      ;(patch as Record<string, unknown>)[f.key] = value
     }
-    if (new Date(patch.phase1_closes_at!) <= new Date(patch.phase1_opens_at!)) return toast('O fecho da 1ª fase tem de ser depois da abertura.', 'error')
-    if (new Date(patch.phase2_opens_at!) < new Date(patch.phase1_closes_at!)) return toast('A 2ª fase não pode abrir antes do fecho da 1ª fase.', 'error')
     const gapHours = (new Date(patch.phase2_opens_at!).getTime() - new Date(patch.phase1_closes_at!).getTime()) / 3_600_000
     if (
       gapHours < 24 &&
@@ -110,6 +123,7 @@ export function SettingsPage() {
       await update({ phase2_closes_at: now }, '2ª fase encerrada.')
     }
     setForm(null)
+    setInvalid({})
   }
 
   const resetVotes = async (phase: 1 | 2) => {
@@ -139,18 +153,20 @@ export function SettingsPage() {
 
       <div className="grid grid-cols-1 gap-4 xl:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)]">
         <Panel title="Calendário">
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+          <div className="grid grid-cols-[repeat(auto-fit,minmax(min(100%,18rem),1fr))] gap-4">
             {DATE_FIELDS.map((f) => (
-              <div key={f.key}>
-                <label className="label-gala">{f.label}</label>
-                <input
-                  type="datetime-local"
-                  value={form[f.key]}
-                  onChange={(e) => setForm({ ...form, [f.key]: e.target.value })}
-                  className="input-gala py-3 [color-scheme:dark]"
-                />
-                <p className="mt-1.5 text-[11px] text-gold-100/40">{f.help}</p>
-              </div>
+              <DateTimeField
+                key={f.key}
+                label={f.label}
+                help={f.help}
+                optional={f.optional}
+                value={form[f.key]}
+                error={orderErrors[f.key]}
+                onChange={(value, valid) => {
+                  setForm((prev) => (prev ? { ...prev, [f.key]: value } : prev))
+                  setInvalid((prev) => ({ ...prev, [f.key]: !valid }))
+                }}
+              />
             ))}
             <div>
               <label className="label-gala">Finalistas por categoria</label>
