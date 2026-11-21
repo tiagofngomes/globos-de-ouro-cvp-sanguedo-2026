@@ -192,7 +192,7 @@ function Categories({ categories }: { categories: Category[] }) {
     <section>
       <SectionTitle eyebrow={`${categories.length} categorias`} title="Os prémios da noite" />
       {/* telemóvel: carrossel horizontal; computador: grelha */}
-      <div className="no-scrollbar -mx-4 mt-8 flex snap-x snap-mandatory gap-4 overflow-x-auto px-4 pb-4 sm:mx-0 sm:grid sm:grid-cols-2 sm:overflow-visible sm:px-0 lg:grid-cols-3">
+      <div className="no-scrollbar -mx-4 mt-8 flex snap-x snap-mandatory gap-4 overflow-x-auto overflow-y-hidden overscroll-x-contain px-4 pb-4 pt-1 sm:mx-0 sm:grid sm:grid-cols-2 sm:overflow-visible sm:px-0 lg:grid-cols-3">
         {categories.map((c, i) => (
           <motion.article
             key={c.id}

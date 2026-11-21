@@ -227,7 +227,11 @@ const c0 = cats[0]
 const votes0 = [10, 9, 8, 7, 5, 5, 5, 1]
 for (let k = 0; k < votes0.length; k++) await db.query(`insert into public.vote_tallies values (1, $1, $2, $3)`, [c0, cands[k].id, votes0[k]])
 // restantes categorias: sem empates
-for (const c of cats.slice(1)) for (let k = 0; k < 7; k++) await db.query(`insert into public.vote_tallies values (1, $1, $2, $3)`, [c, cands[k].id, 20 - k])
+for (const c of cats.slice(2)) for (let k = 0; k < 7; k++) await db.query(`insert into public.vote_tallies values (1, $1, $2, $3)`, [c, cands[k].id, 20 - k])
+// categoria 1: um candidato com 50 votos e DEZ empatados com 5 -> os administradores escolhem 4 dos 10
+const c1 = cats[1]
+await db.query(`insert into public.vote_tallies values (1, $1, $2, 50)`, [c1, cands[0].id])
+for (let k = 1; k <= 10; k++) await db.query(`insert into public.vote_tallies values (1, $1, $2, 5)`, [c1, cands[k].id])
 await db.exec(`update public.event_settings set phase1_closes_at = now() - interval '2 hours', phase2_opens_at = now() - interval '1 hour';`)
 await asAnon('10.3.3.3')
 st = await val(`select public.get_public_state()`)
@@ -238,10 +242,15 @@ ok(
   prop.filter((p) => p.status === 'qualified').length === 4 && prop.filter((p) => p.status === 'tied').length === 3,
   'empate detetado: 4 apurados + 3 empatados',
 )
+const prop1 = (await db.query(`select * from public.admin_finalist_proposal()`)).rows.filter((p) => p.category_id === c1)
+ok(
+  prop1.filter((p) => p.status === 'qualified').length === 1 && prop1.filter((p) => p.status === 'tied').length === 10,
+  '1 com 50 votos + 10 empatados com 5: 1 apurado + 10 empatados para decidir',
+)
 const ovTies = await val(`select public.admin_overview()`)
-ok(ovTies.ties.length === 1 && ovTies.ties[0] === c0, 'empate sinalizado ao administrador')
+ok(ovTies.ties.length === 2 && ovTies.ties.includes(c0) && ovTies.ties.includes(c1), 'as 2 categorias com empate são sinalizadas ao administrador')
 r = await val(`select public.admin_auto_finalize()`)
-ok(r.confirmed === false && r.ties.length === 1, 'apuramento automático recusa com empate')
+ok(r.confirmed === false && r.ties.length === 2, 'apuramento automático recusa com empates')
 
 const sel = {}
 for (const c of cats) {
@@ -252,6 +261,8 @@ r = await val(`select public.admin_set_finalists($1::jsonb)`, [JSON.stringify(se
 ok(r.ok === true, 'administrador resolve o empate e confirma os finalistas')
 const nf = await val(`select count(*)::int from public.finalists`)
 ok(nf === 30, `30 finalistas (${nf})`)
+const fin1 = (await db.query(`select candidate_id from public.finalists where category_id = $1`, [c1])).rows.map((r) => r.candidate_id).sort()
+ok(JSON.stringify(fin1) === JSON.stringify([...sel[c1]].sort()), 'na categoria dos 10 empatados passam exatamente os 4 escolhidos + o de 50 votos')
 
 // ---- fase 2
 await asAnon('10.4.4.4')
@@ -305,6 +316,8 @@ ok(r.ok === true, 'finalistas repostos (sem votos na final)')
 await asSuper()
 await db.exec(`update public.event_settings set results_published = false, phase2_closes_at = null where id;`)
 await db.query(`update public.vote_tallies set votes = 6 where phase = 1 and category_id = $1 and candidate_id = $2`, [c0, cands[4].id])
+for (let k = 1; k <= 4; k++)
+  await db.query(`update public.vote_tallies set votes = $3 where phase = 1 and category_id = $1 and candidate_id = $2`, [c1, cands[k].id, 5 + k])
 await asAnon('10.7.7.7')
 st = await val(`select public.get_public_state()`)
 ok(st.phase === 'phase2', `sem empates, a final abre automaticamente (fase: ${st.phase})`)

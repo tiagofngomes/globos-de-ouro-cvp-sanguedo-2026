@@ -147,7 +147,7 @@ export function AdminLayout() {
         </div>
 
         {/* navegação inferior (telemóvel) */}
-        <nav className="no-scrollbar safe-bottom fixed inset-x-0 bottom-0 z-30 flex overflow-x-auto border-t border-gold-400/15 bg-gala-950/95 px-2 backdrop-blur-xl lg:hidden">
+        <nav className="no-scrollbar safe-bottom fixed inset-x-0 bottom-0 z-30 flex overflow-x-auto overflow-y-hidden overscroll-x-contain border-t border-gold-400/15 bg-gala-950/95 px-2 backdrop-blur-xl lg:hidden">
           {NAV.map((n) => (
             <NavLink
               key={n.to}
