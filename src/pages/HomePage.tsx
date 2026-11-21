@@ -42,29 +42,29 @@ function Hero({ state, offset, onPhaseChange }: { state: PublicState; offset: nu
   const status = (() => {
     switch (s.phase) {
       case 'pre_voting':
-        return { label: 'As nomeações abrem em', target: s.phase1_opens_at, cta: null, note: formatDateTime(s.phase1_opens_at) }
+        return { label: 'As nomeações da 1.ª fase abrem em', target: s.phase1_opens_at, cta: null, note: formatDateTime(s.phase1_opens_at) }
       case 'phase1':
         return {
-          label: 'As nomeações encerram em',
+          label: 'As nomeações da 1.ª fase encerram em',
           target: s.phase1_closes_at,
           cta: { to: path('/votar'), text: 'Votar agora' },
-          note: `Fase 1 · até ${formatDateTime(s.phase1_closes_at)}`,
+          note: `até ${formatDateTime(s.phase1_closes_at)}`,
         }
       case 'paused':
         return { label: 'Votação temporariamente suspensa', target: null, cta: null, note: 'Volte a tentar dentro de momentos.' }
       case 'counting':
         return {
-          label: new Date(s.phase2_opens_at).getTime() > Date.now() + offset ? 'A Grande Final abre em' : 'A apurar os finalistas',
+          label: new Date(s.phase2_opens_at).getTime() > Date.now() + offset ? 'A Grande Final (2.ª fase) abre em' : 'A apurar os finalistas',
           target: new Date(s.phase2_opens_at).getTime() > Date.now() + offset ? s.phase2_opens_at : null,
           cta: null,
           note: 'Os cinco mais votados de cada categoria seguem para a final.',
         }
       case 'phase2':
         return {
-          label: s.phase2_closes_at ? 'A Grande Final encerra em' : 'A Grande Final está a decorrer',
+          label: s.phase2_closes_at ? 'A Grande Final (2.ª fase) encerra em' : 'A Grande Final (2.ª fase) está a decorrer',
           target: s.phase2_closes_at,
           cta: { to: path('/votar'), text: 'Votar na final' },
-          note: 'Fase 2 · vote apenas nos finalistas',
+          note: s.phase2_closes_at ? `até ${formatDateTime(s.phase2_closes_at)}` : 'Vote apenas nos finalistas de cada categoria.',
         }
       case 'awaiting_gala':
         return {
