@@ -9,7 +9,7 @@ import { isoToLisbonInput, lisbonInputToIso } from '../../lib/format'
 
 type DateKey = 'phase1_opens_at' | 'phase1_closes_at' | 'phase2_opens_at' | 'phase2_closes_at' | 'gala_at'
 
-const DATE_FIELDS: Array<{ key: DateKey; label: string; help: string; optional?: boolean; endOfMinute?: boolean }> = [
+const DATE_FIELDS: Array<{ key: DateKey; label: string; help: string; optional?: boolean; endOfMinute?: boolean; dateOnly?: boolean }> = [
   { key: 'phase1_opens_at', label: 'Abertura da 1ª fase', help: 'Início da votação.' },
   { key: 'phase1_closes_at', label: 'Fecho da 1ª fase', help: 'Inclui o minuto indicado (23:59 fecha às 23:59:59).', endOfMinute: true },
   { key: 'phase2_opens_at', label: 'Abertura da 2ª fase', help: 'Os finalistas são apurados automaticamente nesta hora, se não houver empates.' },
@@ -22,9 +22,10 @@ const DATE_FIELDS: Array<{ key: DateKey; label: string; help: string; optional?:
   },
   {
     key: 'gala_at',
-    label: 'Data da gala',
-    help: 'A partir das 00h00 deste dia (e daí em diante), o cartão “Gala” da página inicial dá acesso ao Modo Gala, com credenciais.',
+    label: 'Dia da gala',
+    help: 'Só o dia. Neste dia (e daí em diante) o cartão “Gala” da página inicial fica em destaque e dá acesso ao Modo Gala, com credenciais, a qualquer hora.',
     optional: true,
+    dateOnly: true,
   },
 ]
 
@@ -160,6 +161,7 @@ export function SettingsPage() {
                 label={f.label}
                 help={f.help}
                 optional={f.optional}
+                dateOnly={f.dateOnly}
                 value={form[f.key]}
                 error={orderErrors[f.key]}
                 onChange={(value, valid) => {

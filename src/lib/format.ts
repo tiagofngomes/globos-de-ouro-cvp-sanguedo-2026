@@ -21,6 +21,12 @@ export function isGalaDayReached(galaAt: string | null | undefined, nowMs: numbe
   return Boolean(galaAt) && lisbonDay(nowMs) >= lisbonDay(galaAt as string)
 }
 
+/** Só o dia, na hora de Lisboa: "12 de dezembro de 2026". */
+export function formatDate(iso: string | null | undefined): string {
+  if (!iso) return 'Por definir'
+  return new Intl.DateTimeFormat('pt-PT', { timeZone: TZ, day: 'numeric', month: 'long', year: 'numeric' }).format(new Date(iso))
+}
+
 export function formatShortDate(iso: string | null | undefined): string {
   if (!iso) return 'Por definir'
   return new Intl.DateTimeFormat('pt-PT', { timeZone: TZ, day: 'numeric', month: 'short' }).format(new Date(iso))

@@ -8,7 +8,7 @@ import { Countdown } from '../components/ui/Countdown'
 import { FullPageLoader } from '../components/ui/Feedback'
 import { Trophy } from '../components/ui/Trophy'
 import { usePublicState } from '../hooks/usePublicState'
-import { formatDateTime, isGalaDayReached } from '../lib/format'
+import { formatDate, formatDateTime, isGalaDayReached } from '../lib/format'
 import { cn } from '../lib/cn'
 
 const fadeUp = {
@@ -68,10 +68,12 @@ function Hero({ state, offset, onPhaseChange }: { state: PublicState; offset: nu
         }
       case 'awaiting_gala':
         return {
-          label: s.gala_at ? 'A gala começa em' : 'Votações encerradas',
-          target: s.gala_at,
+          label: 'Votações encerradas',
+          target: null,
           cta: null,
-          note: 'Obrigado a todos! Os vencedores serão revelados na gala.',
+          note: s.gala_at
+            ? `Obrigado a todos! Os vencedores serão revelados na gala, a ${formatDate(s.gala_at)}.`
+            : 'Obrigado a todos! Os vencedores serão revelados na gala.',
         }
       case 'results':
         return { label: 'Os vencedores foram revelados', target: null, cta: { to: path('/resultados'), text: 'Ver vencedores' }, note: null }
@@ -148,7 +150,7 @@ function Timeline({ state, offset }: { state: PublicState; offset: number }) {
     {
       icon: PartyPopper,
       title: 'Gala',
-      text: state.gala_at ? formatDateTime(state.gala_at) : 'Data a anunciar',
+      text: state.gala_at ? formatDate(state.gala_at) : 'Data a anunciar',
       active: idx >= 4 || galaOpen,
       done: false,
       to: galaOpen ? path('/gala') : undefined,

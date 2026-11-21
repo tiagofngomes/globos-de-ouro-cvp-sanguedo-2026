@@ -5,6 +5,7 @@ import { cn } from '../../lib/cn'
 /**
  * Campo de data e hora escrito à mão, em português: dia "DD/MM/AAAA" e hora
  * "HH:MM" (24 horas). As barras e os dois pontos aparecem sozinhos.
+ * Com `dateOnly`, pede só o dia (a hora fica 00:00).
  * O valor trocado com quem usa o campo é "AAAA-MM-DDTHH:MM" (hora de Lisboa),
  * ou "" quando está vazio. `onChange` indica também se o que está escrito é válido.
  */
@@ -14,6 +15,8 @@ interface Props {
   value: string
   onChange: (value: string, valid: boolean) => void
   optional?: boolean
+  /** só o dia, sem hora */
+  dateOnly?: boolean
   /** erro vindo de fora (por exemplo, datas fora de ordem) */
   error?: string | null
 }
@@ -45,11 +48,11 @@ function split(value: string) {
   return m ? { date: `${m[3]}/${m[2]}/${m[1]}`, time: `${m[4]}:${m[5]}` } : { date: '', time: '' }
 }
 
-export function DateTimeField({ label, help, value, onChange, optional, error }: Props) {
+export function DateTimeField({ label, help, value, onChange, optional, dateOnly, error }: Props) {
   const id = useId()
   const initial = split(value)
   const [dateText, setDateText] = useState(initial.date)
-  const [timeText, setTimeText] = useState(initial.time)
+  const [timeText, setTimeText] = useState(dateOnly ? '' : initial.time)
   const [touched, setTouched] = useState(false)
   const lastEmitted = useRef(value)
 
@@ -59,15 +62,15 @@ export function DateTimeField({ label, help, value, onChange, optional, error }:
     lastEmitted.current = value
     const s = split(value)
     setDateText(s.date)
-    setTimeText(s.time)
-  }, [value])
+    setTimeText(dateOnly ? '' : s.time)
+  }, [value, dateOnly])
 
   const emit = (dText: string, tText: string) => {
     const d = parseDate(dText)
-    const t = parseTime(tText)
+    const t = dateOnly ? { h: 0, mi: 0 } : parseTime(tText)
     let next = ''
     let valid = false
-    if (!dText && !tText) valid = Boolean(optional)
+    if (!dText && (dateOnly || !tText)) valid = Boolean(optional)
     else if (d && t) {
       next = `${d.y}-${pad(d.m)}-${pad(d.d)}T${pad(t.h)}:${pad(t.mi)}`
       valid = true
@@ -78,14 +81,14 @@ export function DateTimeField({ label, help, value, onChange, optional, error }:
 
   const dateBad = dateText !== '' && (dateText.length === 10 || touched) && !parseDate(dateText)
   const timeBad = timeText !== '' && (timeText.length === 5 || touched) && !parseTime(timeText)
-  const missing = touched && !optional && (!dateText || !timeText)
+  const missing = touched && !optional && (!dateText || (!dateOnly && !timeText))
   const message = dateBad
     ? 'Data inválida. Use DD/MM/AAAA.'
     : timeBad
       ? 'Hora inválida. Use HH:MM, de 00:00 a 23:59.'
       : missing
         ? 'Preencha o dia e a hora.'
-        : touched && optional && Boolean(dateText) !== Boolean(timeText)
+        : touched && optional && !dateOnly && Boolean(dateText) !== Boolean(timeText)
           ? 'Preencha o dia e a hora, ou deixe os dois vazios.'
           : error
 
@@ -123,21 +126,23 @@ export function DateTimeField({ label, help, value, onChange, optional, error }:
           aria-invalid={Boolean(dateBad)}
           className={cn('input-gala min-w-0 flex-1 px-4 py-3 tabular-nums', dateBad && 'border-cvp-500/70')}
         />
-        <input
-          value={timeText}
-          onChange={(e) => {
-            const v = maskTime(e.target.value)
-            setTimeText(v)
-            emit(dateText, v)
-          }}
-          onBlur={() => setTouched(true)}
-          inputMode="numeric"
-          autoComplete="off"
-          placeholder="HH:MM"
-          aria-label={`${label}: hora`}
-          aria-invalid={Boolean(timeBad)}
-          className={cn('input-gala w-[5.25rem] shrink-0 px-2 py-3 text-center tabular-nums', timeBad && 'border-cvp-500/70')}
-        />
+        {!dateOnly && (
+          <input
+            value={timeText}
+            onChange={(e) => {
+              const v = maskTime(e.target.value)
+              setTimeText(v)
+              emit(dateText, v)
+            }}
+            onBlur={() => setTouched(true)}
+            inputMode="numeric"
+            autoComplete="off"
+            placeholder="HH:MM"
+            aria-label={`${label}: hora`}
+            aria-invalid={Boolean(timeBad)}
+            className={cn('input-gala w-[5.25rem] shrink-0 px-2 py-3 text-center tabular-nums', timeBad && 'border-cvp-500/70')}
+          />
+        )}
       </div>
 
       {message ? (

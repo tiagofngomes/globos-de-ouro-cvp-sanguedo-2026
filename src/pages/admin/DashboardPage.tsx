@@ -9,7 +9,7 @@ import { RingStat } from '../../components/charts/BarChart'
 import { CategoryMedallion } from '../../components/ui/CategoryIcon'
 import { FullPageLoader } from '../../components/ui/Feedback'
 import { Countdown } from '../../components/ui/Countdown'
-import { formatDateTime, pct } from '../../lib/format'
+import { formatDate, formatDateTime, pct } from '../../lib/format'
 
 export function DashboardPage() {
   const { overview } = useAdmin()
@@ -46,9 +46,7 @@ export function DashboardPage() {
           ? { label: 'Abertura da 2ª fase', at: s.phase2_opens_at }
           : o.phase === 'phase2' && s.phase2_closes_at
             ? { label: 'Fecho da 2ª fase', at: s.phase2_closes_at }
-            : o.phase === 'awaiting_gala' && s.gala_at
-              ? { label: 'Gala', at: s.gala_at }
-              : null
+            : null
 
   return (
     <div>
@@ -85,7 +83,11 @@ export function DashboardPage() {
               <p className="mt-3 text-center text-xs text-gold-100/50">{formatDateTime(nextDeadline.at)}</p>
             </>
           ) : (
-            <p className="text-sm text-gold-100/60">Sem prazos pendentes. Defina as datas em “Datas e fases”.</p>
+            <p className="text-sm text-gold-100/60">
+              {o.phase === 'awaiting_gala' || o.phase === 'results'
+                ? `Votações encerradas. ${s.gala_at ? `Gala: ${formatDate(s.gala_at)}.` : 'Defina o dia da gala em “Datas e fases”.'}`
+                : 'Sem prazos pendentes. Defina as datas em “Datas e fases”.'}
+            </p>
           )}
         </Panel>
       </div>
@@ -151,7 +153,7 @@ export function DashboardPage() {
           <DateItem label="Fecho da 1ª fase" value={s.phase1_closes_at} />
           <DateItem label="Abertura da 2ª fase" value={s.phase2_opens_at} />
           <DateItem label="Fecho da 2ª fase" value={s.phase2_closes_at} empty="A definir" />
-          <DateItem label="Gala" value={s.gala_at} empty="A definir" />
+          <DateItem label="Gala" value={s.gala_at} empty="A definir" dateOnly />
           <div className="rounded-xl border border-white/5 p-3">
             <dt className="text-[11px] uppercase tracking-[0.15em] text-gold-300/60">Resultados</dt>
             <dd className="mt-1 text-gold-50">{s.results_published ? 'Publicados' : 'Privados'}</dd>
@@ -173,11 +175,11 @@ function Stat({ icon: Icon, label, value, sub, to }: { icon: typeof Users; label
   )
 }
 
-function DateItem({ label, value, empty = 'Por definir' }: { label: string; value: string | null; empty?: string }) {
+function DateItem({ label, value, empty = 'Por definir', dateOnly }: { label: string; value: string | null; empty?: string; dateOnly?: boolean }) {
   return (
     <div className="rounded-xl border border-white/5 p-3">
       <dt className="text-[11px] uppercase tracking-[0.15em] text-gold-300/60">{label}</dt>
-      <dd className="mt-1 text-gold-50">{value ? formatDateTime(value) : <span className="text-gold-100/40">{empty}</span>}</dd>
+      <dd className="mt-1 text-gold-50">{value ? dateOnly ? formatDate(value) : formatDateTime(value) : <span className="text-gold-100/40">{empty}</span>}</dd>
     </div>
   )
 }
