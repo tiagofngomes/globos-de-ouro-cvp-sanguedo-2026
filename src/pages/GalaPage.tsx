@@ -183,14 +183,14 @@ export function GalaPage() {
       <AnimatePresence mode="wait">
         <motion.div
           key={i}
-          className="absolute inset-0 flex items-center justify-center px-6 py-20"
+          className="absolute inset-0 flex items-center justify-center px-[4vw] pb-[9vh] pt-[8vh]"
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0, transition: { duration: 0.35 } }}
           transition={{ duration: 0.6 }}
         >
           {slide?.kind === 'intro' && <IntroSlide />}
-          {slide?.kind === 'category' && show && <CategorySlide show={show} index={slide.ci} />}
+          {slide?.kind === 'category' && show && <CategorySlide show={show} index={slide.ci} total={shows.length} />}
           {slide?.kind === 'nominees' && show && <NomineesSlide show={show} />}
           {slide?.kind === 'race' && show && <RaceSlide show={show} sound={sound} onDone={() => advanceFrom(i)} />}
           {slide?.kind === 'winner' && show && <WinnerSlide show={show} />}
@@ -257,72 +257,85 @@ function IntroSlide() {
       <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }}>
         <CvpRibbon>Cruz Vermelha Portuguesa · Delegação de Sanguedo</CvpRibbon>
       </motion.div>
-      <motion.div initial={{ scale: 0.5, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} transition={{ duration: 1.4, ease }} className="my-8">
-        <Trophy className="mx-auto h-[28vh] w-[19vh] animate-float" />
+      <motion.div initial={{ scale: 0.5, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} transition={{ duration: 1.4, ease }} className="my-[3vh]">
+        <Trophy className="mx-auto h-[42vh] w-[28vh] animate-float" />
       </motion.div>
       <motion.h1 initial={{ opacity: 0, y: 30 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.6, duration: 1, ease }} className="font-display">
-        <span className="text-gold-animated block text-[clamp(3rem,10vw,9rem)] font-bold leading-none">Globos de Ouro</span>
-        <span className="mt-4 block text-[clamp(1.2rem,3vw,2.5rem)] tracking-[0.4em] text-gold-100">CVP SANGUEDO 2026</span>
+        <span className="text-gold-animated block text-[length:min(11vw,17vh)] font-bold leading-none">Globos de Ouro</span>
+        <span className="mt-[2vh] block text-[length:min(3.4vw,5.5vh)] tracking-[0.4em] text-gold-100">CVP SANGUEDO 2026</span>
       </motion.h1>
     </div>
   )
 }
 
-function CategorySlide({ show, index }: { show: CategoryShow; index: number }) {
+function CategorySlide({ show, index, total }: { show: CategoryShow; index: number; total: number }) {
   return (
-    <div className="max-w-5xl text-center">
-      <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="eyebrow text-[clamp(.7rem,1.2vw,1rem)]">
-        Categoria {index + 1}
-      </motion.div>
+    <div className="flex w-full max-w-[92vw] flex-col items-center gap-[3vh] text-center md:flex-row md:gap-[5vw] md:text-left">
       <motion.div
-        initial={{ scale: 0, rotate: -90 }}
-        animate={{ scale: 1, rotate: 0 }}
-        transition={{ type: 'spring', damping: 12, delay: 0.2 }}
-        className="my-8"
+        initial={{ scale: 0.4, opacity: 0, y: 40 }}
+        animate={{ scale: 1, opacity: 1, y: 0 }}
+        transition={{ type: 'spring', damping: 14, stiffness: 70, delay: 0.1 }}
+        className="shrink-0"
       >
-        <CategoryMedallion icon={show.category.icon} size="xl" className="mx-auto scale-125" />
+        <Trophy icon={show.category.icon} className="h-[36vh] w-[24vh] animate-float md:h-[68vh] md:w-[45vh]" />
       </motion.div>
-      <motion.h2
-        initial={{ opacity: 0, y: 30, letterSpacing: '0.3em' }}
-        animate={{ opacity: 1, y: 0, letterSpacing: '0.02em' }}
-        transition={{ delay: 0.4, duration: 1.2, ease }}
-        className="text-gold font-display text-[clamp(2.2rem,6vw,5.5rem)] font-bold leading-tight"
-      >
-        {show.category.name}
-      </motion.h2>
-      <motion.p
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        transition={{ delay: 1.1 }}
-        className="mx-auto mt-6 max-w-3xl font-serif text-[clamp(1rem,2vw,1.6rem)] italic text-gold-50/70"
-      >
-        {show.category.description}
-      </motion.p>
+      <div className="min-w-0 flex-1">
+        <motion.div
+          initial={{ opacity: 0, x: -20 }}
+          animate={{ opacity: 1, x: 0 }}
+          transition={{ delay: 0.3 }}
+          className="eyebrow text-[length:min(1.8vw,2.8vh)]"
+        >
+          Categoria {index + 1} de {total}
+        </motion.div>
+        <motion.h2
+          initial={{ opacity: 0, y: 30, letterSpacing: '0.2em' }}
+          animate={{ opacity: 1, y: 0, letterSpacing: '0.01em' }}
+          transition={{ delay: 0.45, duration: 1.2, ease }}
+          className="text-gold mt-[2vh] font-display text-[length:min(5.8vw,10vh)] font-bold leading-[1.05]"
+        >
+          {show.category.name}
+        </motion.h2>
+        <motion.div
+          initial={{ scaleX: 0 }}
+          animate={{ scaleX: 1 }}
+          transition={{ delay: 1, duration: 0.9 }}
+          className="divider-gold mt-[3vh] max-w-[40vw] origin-left"
+        />
+        <motion.p
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ delay: 1.2 }}
+          className="mt-[3vh] max-w-[60ch] font-serif text-[length:min(2.3vw,3.8vh)] italic leading-snug text-gold-50/75"
+        >
+          {show.category.description}
+        </motion.p>
+      </div>
     </div>
   )
 }
 
 function NomineesSlide({ show }: { show: CategoryShow }) {
   return (
-    <div className="w-full max-w-6xl text-center">
-      <div className="eyebrow text-[clamp(.7rem,1.2vw,1rem)]">{show.category.name}</div>
-      <h2 className="mt-3 font-display text-[clamp(2rem,4.5vw,4rem)] text-gold-50">Os nomeados são…</h2>
-      <div className="mt-10 flex flex-wrap justify-center gap-[2vw]">
+    <div className="w-full max-w-[94vw] text-center">
+      <div className="eyebrow text-[length:min(1.8vw,2.8vh)]">{show.category.name}</div>
+      <h2 className="mt-[1.5vh] font-display text-[length:min(5.5vw,9vh)] text-gold-50">Os nomeados são…</h2>
+      <div className="mt-[6vh] flex flex-wrap justify-center gap-[1.6vw]">
         {show.nominees.map((n, k) => (
           <motion.div
             key={n.candidate_id}
             initial={{ opacity: 0, y: 40, rotateX: -60 }}
             animate={{ opacity: 1, y: 0, rotateX: 0 }}
             transition={{ delay: 0.5 + k * 0.55, duration: 0.8, ease }}
-            className="card-gala flex w-[clamp(10rem,17vw,15rem)] flex-col items-center gap-3 p-[1.5vw]"
+            className="card-gala flex w-[min(16vw,30vh)] flex-col items-center gap-[2vh] p-[min(1.6vw,2.8vh)]"
           >
             <span
-              className="grid h-[clamp(3.5rem,7vw,6rem)] w-[clamp(3.5rem,7vw,6rem)] place-items-center rounded-full font-display text-[clamp(1.1rem,2.2vw,2rem)] font-semibold text-gala-900"
+              className="grid h-[min(9vw,16vh)] w-[min(9vw,16vh)] place-items-center rounded-full font-display text-[length:min(3vw,5.2vh)] font-semibold text-gala-900"
               style={{ background: 'linear-gradient(135deg,#fdf8e8,#e3b53a 50%,#8a611b)' }}
             >
               {initials(n.candidate_name)}
             </span>
-            <span className="font-display text-[clamp(1rem,1.7vw,1.6rem)] leading-tight text-gold-50">{n.candidate_name}</span>
+            <span className="font-display text-[length:min(2.4vw,4vh)] leading-tight text-gold-50">{n.candidate_name}</span>
           </motion.div>
         ))}
       </div>
@@ -383,13 +396,13 @@ function RaceSlide({ show, sound, onDone }: { show: CategoryShow; sound: boolean
   const isWinner = (r: ResultRow) => settled && show.winners.some((w) => w.candidate_id === r.candidate_id)
 
   return (
-    <div className="flex h-full w-full max-w-6xl flex-col text-center">
-      <div className="eyebrow text-[clamp(.7rem,1.2vw,1rem)]">{show.category.name}</div>
+    <div className="flex h-full w-full max-w-[94vw] flex-col text-center">
+      <div className="eyebrow text-[length:min(1.8vw,2.8vh)]">{show.category.name}</div>
       <motion.h2
         initial={{ opacity: 0, scale: 0.9 }}
         animate={{ opacity: 1, scale: 1 }}
         transition={{ delay: 0.2 }}
-        className="mt-3 font-serif text-[clamp(1.8rem,4.2vw,3.8rem)] italic leading-tight text-gold-50"
+        className="mt-[1vh] font-serif text-[length:min(4.4vw,7vh)] italic leading-tight text-gold-50"
       >
         E o Globo de Ouro vai para…
       </motion.h2>
@@ -397,28 +410,26 @@ function RaceSlide({ show, sound, onDone }: { show: CategoryShow; sound: boolean
       {nominees.length === 0 ? (
         <p className="mt-16 text-2xl text-gold-100/60">Sem votos nesta categoria.</p>
       ) : (
-        <div className="mt-[3vh] flex min-h-0 flex-1 items-stretch justify-center gap-[clamp(0.75rem,3vw,3rem)]">
+        <div className="mt-[3vh] flex min-h-0 flex-1 items-stretch justify-center gap-[min(3vw,5vh)]">
           {nominees.map((r, k) => {
             const win = isWinner(r)
             const lose = settled && !win
             return (
-              <div key={r.candidate_id} className="flex w-[clamp(5rem,12.5vw,13rem)] min-w-0 flex-col items-center">
+              <div key={r.candidate_id} className="flex w-[min(15vw,27vh)] min-w-0 flex-col items-center">
                 {/* valor por cima da barra: "?" enquanto brinca, valores reais no fim */}
-                <div className="flex h-[clamp(3rem,9vh,6rem)] flex-col items-center justify-end">
+                <div className="flex h-[14vh] flex-col items-center justify-end">
                   {settled ? (
                     <motion.div initial={{ opacity: 0, y: 10, scale: 0.8 }} animate={{ opacity: 1, y: 0, scale: 1 }} transition={{ delay: 0.25 }}>
-                      {win && (
-                        <Crown className="mx-auto h-[clamp(1.4rem,3vw,2.6rem)] w-[clamp(1.4rem,3vw,2.6rem)] text-gold-300 drop-shadow-[0_0_18px_rgba(236,201,90,.9)]" />
-                      )}
+                      {win && <Crown className="mx-auto h-[min(3.6vw,6vh)] w-[min(3.6vw,6vh)] text-gold-300 drop-shadow-[0_0_18px_rgba(236,201,90,.9)]" />}
                       <div
                         className={cn(
-                          'font-display text-[clamp(1.1rem,2.4vw,2.2rem)] font-bold tabular-nums leading-none',
+                          'font-display text-[length:min(3.8vw,6.4vh)] font-bold tabular-nums leading-none',
                           win ? 'text-gold-100' : 'text-gold-50/50',
                         )}
                       >
                         {formatPct(pct(r.votes, show.total))}
                       </div>
-                      <div className={cn('mt-1 text-[clamp(.65rem,1vw,.9rem)] tabular-nums', win ? 'text-gold-200/80' : 'text-gold-50/35')}>
+                      <div className={cn('mt-1 text-[length:min(1.6vw,2.6vh)] tabular-nums', win ? 'text-gold-200/80' : 'text-gold-50/35')}>
                         {plural(r.votes, 'voto', 'votos')}
                       </div>
                     </motion.div>
@@ -426,7 +437,7 @@ function RaceSlide({ show, sound, onDone }: { show: CategoryShow; sound: boolean
                     <motion.span
                       animate={{ opacity: [0.35, 0.9, 0.35] }}
                       transition={{ duration: 0.9, repeat: Infinity }}
-                      className="font-display text-[clamp(1.4rem,3vw,2.6rem)] text-gold-200"
+                      className="font-display text-[length:min(4.2vw,7vh)] text-gold-200"
                     >
                       ?
                     </motion.span>
@@ -452,10 +463,10 @@ function RaceSlide({ show, sound, onDone }: { show: CategoryShow; sound: boolean
                 </div>
 
                 {/* nome */}
-                <div className="mt-3 flex h-[clamp(6.5rem,15vh,10rem)] shrink-0 flex-col items-center justify-start gap-2">
+                <div className="mt-[1.5vh] flex h-[23vh] shrink-0 flex-col items-center justify-start gap-2">
                   <span
                     className={cn(
-                      'grid h-[clamp(2.4rem,5vw,4.2rem)] w-[clamp(2.4rem,5vw,4.2rem)] place-items-center rounded-full font-display text-[clamp(.8rem,1.5vw,1.4rem)] font-semibold text-gala-900 transition-opacity duration-700',
+                      'grid h-[min(5vw,8.5vh)] w-[min(5vw,8.5vh)] shrink-0 place-items-center rounded-full font-display text-[length:min(1.7vw,2.9vh)] font-semibold text-gala-900 transition-opacity duration-700',
                       lose && 'opacity-40',
                     )}
                     style={{ background: 'linear-gradient(135deg,#fdf8e8,#e3b53a 50%,#8a611b)' }}
@@ -464,7 +475,7 @@ function RaceSlide({ show, sound, onDone }: { show: CategoryShow; sound: boolean
                   </span>
                   <span
                     className={cn(
-                      'line-clamp-3 font-display text-[clamp(.8rem,1.4vw,1.35rem)] leading-tight transition-colors duration-700',
+                      'line-clamp-3 font-display text-[length:min(2.1vw,3.5vh)] leading-[1.12] transition-colors duration-700',
                       win ? 'text-gold-100' : lose ? 'text-gold-50/40' : 'text-gold-50',
                     )}
                   >
@@ -482,7 +493,7 @@ function RaceSlide({ show, sound, onDone }: { show: CategoryShow; sound: boolean
 
 function WinnerSlide({ show }: { show: CategoryShow }) {
   return (
-    <div className="w-full max-w-6xl text-center">
+    <div className="w-full max-w-[94vw] text-center">
       {/* foco de luz sobre o vencedor */}
       <motion.div
         aria-hidden
@@ -492,7 +503,7 @@ function WinnerSlide({ show }: { show: CategoryShow }) {
         className="pointer-events-none absolute left-1/2 top-0 h-[90vh] w-[60vw] -translate-x-1/2"
         style={{ background: 'radial-gradient(ellipse at top, rgba(253,248,232,.28), transparent 65%)' }}
       />
-      <motion.div initial={{ y: -20, opacity: 0 }} animate={{ y: 0, opacity: 1 }} className="eyebrow relative text-[clamp(.7rem,1.2vw,1rem)]">
+      <motion.div initial={{ y: -20, opacity: 0 }} animate={{ y: 0, opacity: 1 }} className="eyebrow relative text-[length:min(2.2vw,3.5vh)]">
         {show.category.name}
       </motion.div>
       {show.winners.length === 0 && <p className="mt-10 text-2xl text-gold-100/60">Sem votos nesta categoria.</p>}
@@ -504,8 +515,8 @@ function WinnerSlide({ show }: { show: CategoryShow }) {
             animate={{ scale: 1, opacity: 1, filter: 'blur(0px)' }}
             transition={{ type: 'spring', damping: 11, stiffness: 80, delay: 0.15 + k * 0.3 }}
           >
-            <Crown className="mx-auto mb-2 h-[clamp(2.5rem,6vw,5rem)] w-[clamp(2.5rem,6vw,5rem)] text-gold-300 drop-shadow-[0_0_25px_rgba(236,201,90,.9)]" />
-            <div className="text-gold-animated font-display text-[clamp(2.6rem,8vw,7.5rem)] font-bold leading-[1.05]">{w.candidate_name}</div>
+            <Crown className="mx-auto mb-[2vh] h-[min(8vw,13vh)] w-[min(8vw,13vh)] text-gold-300 drop-shadow-[0_0_25px_rgba(236,201,90,.9)]" />
+            <div className="text-gold-animated font-display text-[length:min(10vw,17vh)] font-bold leading-[1.02]">{w.candidate_name}</div>
           </motion.div>
         ))}
         {show.winners.length > 1 && <div className="eyebrow text-cvp-400">Ex aequo</div>}
@@ -516,22 +527,24 @@ function WinnerSlide({ show }: { show: CategoryShow }) {
 
 function FinaleSlide({ shows }: { shows: CategoryShow[] }) {
   return (
-    <div className="w-full max-w-6xl text-center">
-      <h2 className="text-gold-animated font-display text-[clamp(2.2rem,6vw,5.5rem)] font-bold">Parabéns aos vencedores!</h2>
-      <p className="mt-3 font-serif text-[clamp(1rem,2vw,1.6rem)] italic text-gold-50/70">Obrigado a todos os que fazem da CVP Sanguedo uma família.</p>
-      <div className="mt-10 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+    <div className="w-full max-w-[94vw] text-center">
+      <h2 className="text-gold-animated font-display text-[length:min(6vw,10vh)] font-bold">Parabéns aos vencedores!</h2>
+      <p className="mt-[1.5vh] font-serif text-[length:min(2.3vw,3.8vh)] italic text-gold-50/70">Obrigado a todos os que fazem da CVP Sanguedo uma família.</p>
+      <div className="mt-[5vh] grid grid-cols-1 gap-[min(1.5vw,2.5vh)] sm:grid-cols-2 lg:grid-cols-3">
         {shows.map((s, k) => (
           <motion.div
             key={s.category.id}
             initial={{ opacity: 0, y: 30 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.3 + k * 0.15 }}
-            className="card-gala flex items-center gap-4 p-4 text-left"
+            className="card-gala flex items-center gap-[min(1.4vw,2.4vh)] p-[min(1.5vw,2.6vh)] text-left"
           >
-            <CategoryMedallion icon={s.category.icon} size="md" />
+            <CategoryMedallion icon={s.category.icon} size="lg" />
             <div className="min-w-0">
-              <div className="truncate text-[11px] uppercase tracking-[0.15em] text-gold-300/70">{s.category.name}</div>
-              <div className="font-display text-xl leading-tight text-gold-50">{s.winners.map((w) => w.candidate_name).join(' & ') || '—'}</div>
+              <div className="line-clamp-2 text-[length:min(1.1vw,1.9vh)] uppercase leading-snug tracking-[0.15em] text-gold-300/70">{s.category.name}</div>
+              <div className="font-display text-[length:min(2.4vw,4vh)] leading-tight text-gold-50">
+                {s.winners.map((w) => w.candidate_name).join(' & ') || '—'}
+              </div>
             </div>
           </motion.div>
         ))}

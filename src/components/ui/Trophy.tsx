@@ -1,8 +1,12 @@
 import { useId } from 'react'
 import { cn } from '../../lib/cn'
+import { CategoryIcon } from './CategoryIcon'
 
-/** Troféu "globo de ouro" desenhado em SVG, com brilho e cruz vermelha. */
-export function Trophy({ className, glow = true }: { className?: string; glow?: boolean }) {
+/**
+ * Troféu "globo de ouro" desenhado em SVG, com brilho e a cruz da CVP na base.
+ * Com `icon`, o ícone da categoria aparece gravado no globo.
+ */
+export function Trophy({ className, glow = true, icon }: { className?: string; glow?: boolean; icon?: string }) {
   const id = useId().replace(/:/g, '')
   return (
     <div className={cn('relative', className)}>
@@ -39,7 +43,7 @@ export function Trophy({ className, glow = true }: { className?: string; glow?: 
         {/* globo */}
         <circle cx="60" cy="50" r="38" fill={`url(#g2${id})`} />
         {/* meridianos e paralelos */}
-        <g fill="none" stroke="#8a611b" strokeOpacity=".55" strokeWidth="1.1">
+        <g fill="none" stroke="#8a611b" strokeOpacity={icon ? 0.25 : 0.55} strokeWidth="1.1">
           <ellipse cx="60" cy="50" rx="38" ry="13" />
           <ellipse cx="60" cy="50" rx="15" ry="38" />
           <ellipse cx="60" cy="50" rx="29" ry="38" />
@@ -61,6 +65,13 @@ export function Trophy({ className, glow = true }: { className?: string; glow?: 
         <rect x="49" y="130" width="22" height="14" rx="2" fill="#ffffff" stroke="#8a611b" strokeWidth=".6" />
         <path d="M58 132.5h4v3.5h3.5v4H62v3.5h-4V140h-3.5v-4H58z" fill="#e30613" />
       </svg>
+
+      {/* ícone da categoria gravado no globo (centro do globo: 50% / 27,8% do desenho) */}
+      {icon && (
+        <div className="absolute left-1/2 top-[27.8%] grid aspect-square w-[40%] -translate-x-1/2 -translate-y-1/2 place-items-center">
+          <CategoryIcon icon={icon} className="h-full w-full text-gala-900/85 drop-shadow-[0_1px_0_rgba(255,251,234,.6)]" />
+        </div>
+      )}
     </div>
   )
 }
