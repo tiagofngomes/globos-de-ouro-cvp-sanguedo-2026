@@ -362,7 +362,14 @@ function NomineesSlide({ show }: { show: CategoryShow }) {
   const cardStyle = dense ? { width: `min(30vh, calc((94vw - ${(n - 1) * 1.6}vw) / ${n}))` } : undefined
   const avatar = dense ? `min(9vw, 16vh, ${(50 / n).toFixed(2)}vw)` : undefined
   const avatarStyle = dense ? { width: avatar, height: avatar, fontSize: `min(3vw, 5.2vh, ${(17 / n).toFixed(2)}vw)` } : undefined
-  const nameStyle = dense ? { fontSize: `min(2.4vw, 4vh, ${(13 / n).toFixed(2)}vw)` } : undefined
+  // com muitos nomeados, a letra encolhe; e mais um pouco se houver uma palavra comprida,
+  // para nenhuma palavra ser partida a meio
+  const nameStyle = (name: string) => {
+    if (!dense) return undefined
+    const longest = Math.max(...name.split(/\s+/).map((w) => w.length))
+    const k = Math.min(1, 7 / Math.max(longest, 1))
+    return { fontSize: `calc(min(2.4vw, 4vh, ${(13 / n).toFixed(2)}vw) * ${k.toFixed(2)})` }
+  }
   return (
     <div className="w-full max-w-[94vw] text-center">
       <div className="eyebrow text-[length:min(1.8vw,2.8vh)]">{show.category.name}</div>
@@ -383,7 +390,10 @@ function NomineesSlide({ show }: { show: CategoryShow }) {
             >
               {initials(n.candidate_name)}
             </span>
-            <span className="font-display text-[length:min(2.4vw,4vh)] leading-tight text-gold-50 [overflow-wrap:anywhere]" style={nameStyle}>
+            <span
+              className="font-display text-[length:min(2.4vw,4vh)] leading-tight text-gold-50 [overflow-wrap:break-word]"
+              style={nameStyle(n.candidate_name)}
+            >
               {n.candidate_name}
             </span>
           </motion.div>
