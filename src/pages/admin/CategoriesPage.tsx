@@ -26,11 +26,52 @@ export function CategoriesPage() {
     load()
   }, [load])
 
+  const byOrder = (a: Category, b: Category) => a.sort_order - b.sort_order || a.name.localeCompare(b.name, 'pt')
+
+  /**
+   * Numeração sempre seguida (1, 2, 3…): a categoria `movedId` fica na posição
+   * pedida e as outras chegam-se para trás ou para a frente.
+   */
+  const renumber = async (movedId?: string, position?: number) => {
+    const current = (await api.admin.listCategories()).sort(byOrder)
+    const moved = current.find((c) => c.id === movedId)
+    const others = current.filter((c) => c.id !== movedId)
+    if (moved) others.splice(Math.min(Math.max((position ?? others.length + 1) - 1, 0), others.length), 0, moved)
+    const ids = others.map((c) => c.id)
+    if (ids.some((id, i) => current.find((c) => c.id === id)!.sort_order !== i + 1)) await api.admin.reorderCategories(ids)
+  }
+
   const save = async () => {
     if (!draft || draft.name.trim().length < 3) return
+    const before = new Set((list ?? []).map((c) => c.id))
+    const position = draft.sort_order ?? (list?.length ?? 0) + 1
     const r = await api.admin.saveCategory(draft)
     toast(r.ok ? 'Categoria guardada.' : (r.error ?? 'Erro'), r.ok ? 'success' : 'error')
-    if (r.ok) setDraft(null)
+    if (r.ok) {
+      // a categoria guardada (nova ou editada) fica na posição escolhida
+      const savedId = draft.id ?? (await api.admin.listCategories()).find((c) => !before.has(c.id))?.id
+      await renumber(savedId, position)
+      setDraft(null)
+    }
+    load()
+  }
+
+  const toggleActive = async (c: Category) => {
+    const activating = c.active === false
+    if (
+      votingStarted &&
+      !(await ask({
+        title: activating ? 'Ativar categoria?' : 'Desativar categoria?',
+        message: activating
+          ? `"${c.name}" passa a aparecer na votação. Quem estiver a meio da votação neste momento terá de entrar outra vez e votar também nesta categoria.`
+          : `"${c.name}" deixa de aparecer na votação e nos resultados. Quem estiver a meio da votação neste momento terá de entrar outra vez.`,
+        confirmText: activating ? 'Ativar' : 'Desativar',
+        danger: true,
+      }))
+    )
+      return
+    const r = await api.admin.saveCategory({ ...c, active: activating })
+    toast(r.ok ? (activating ? 'Categoria ativada.' : 'Categoria desativada.') : (r.error ?? 'Erro'), r.ok ? 'success' : 'error')
     load()
   }
 
@@ -38,6 +79,7 @@ export function CategoriesPage() {
     if (!(await ask({ title: 'Apagar categoria', message: `Apagar a categoria "${c.name}"?`, confirmText: 'Apagar', danger: true }))) return
     const r = await api.admin.deleteCategory(c.id)
     if (!r.ok) toast(r.error ?? 'Erro', 'error')
+    else await renumber()
     load()
   }
 
@@ -63,7 +105,7 @@ export function CategoriesPage() {
         </p>
       )}
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
-        {list.map((c) => (
+        {[...list].sort(byOrder).map((c) => (
           <Panel key={c.id} className={cn(c.active === false && 'opacity-50')}>
             <div className="flex items-start gap-4">
               <CategoryMedallion icon={c.icon} />
@@ -74,9 +116,16 @@ export function CategoriesPage() {
             </div>
             <p className="mt-3 line-clamp-3 text-sm text-gold-50/55">{c.description}</p>
             <div className="mt-4 flex items-center justify-between">
-              <span className={cn('text-[10px] font-semibold uppercase tracking-wider', c.active !== false ? 'text-gold-300' : 'text-gold-100/40')}>
+              <button
+                onClick={() => toggleActive(c)}
+                className={cn(
+                  'rounded-full px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wider transition',
+                  c.active !== false ? 'bg-gold-400/15 text-gold-200 hover:bg-gold-400/25' : 'bg-white/5 text-gold-100/50 hover:bg-white/10',
+                )}
+                title={c.active !== false ? 'Desativar categoria' : 'Ativar categoria'}
+              >
                 {c.active !== false ? 'Ativa' : 'Inativa'}
-              </span>
+              </button>
               <div className="flex gap-2">
                 <button onClick={() => remove(c)} className="rounded-lg p-2 text-gold-100/30 hover:text-cvp-400" aria-label="Apagar">
                   <Trash2 className="h-4 w-4" />
@@ -127,9 +176,11 @@ export function CategoriesPage() {
             </div>
             <div className="flex gap-4">
               <div className="w-28">
-                <label className="label-gala">Ordem</label>
+                <label className="label-gala">Posição</label>
                 <input
                   type="number"
+                  min={1}
+                  max={(list?.length ?? 0) + (draft.id ? 0 : 1)}
                   value={draft.sort_order ?? 0}
                   onChange={(e) => setDraft({ ...draft, sort_order: Number(e.target.value) })}
                   className="input-gala py-3"

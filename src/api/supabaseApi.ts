@@ -127,6 +127,17 @@ export function createSupabaseApi(): VotingApi {
         if (error) throw new Error(friendly(error))
         return data as Category[]
       },
+      async reorderCategories(ids) {
+        const results = await Promise.all(
+          ids.map((id, i) =>
+            sb()
+              .from('categories')
+              .update({ sort_order: i + 1 })
+              .eq('id', id),
+          ),
+        )
+        return op(results.find((r) => r.error)?.error ?? null)
+      },
       async saveCategory(c) {
         const row = {
           name: c.name.trim(),

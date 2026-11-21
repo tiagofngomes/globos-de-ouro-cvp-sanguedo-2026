@@ -456,6 +456,11 @@ export function createDemoApi(): VotingApi {
       async listCategories() {
         return [...state.categories].sort((a, b) => a.sort_order - b.sort_order)
       },
+      async reorderCategories(ids) {
+        state.categories = state.categories.map((c) => (ids.includes(c.id) ? { ...c, sort_order: ids.indexOf(c.id) + 1 } : c))
+        save()
+        return { ok: true }
+      },
       async saveCategory(c) {
         if (c.id) {
           state.categories = state.categories.map((x) => (x.id === c.id ? { ...x, ...c } : x))

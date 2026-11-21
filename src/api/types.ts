@@ -178,6 +178,8 @@ export interface VotingApi {
     listCategories(): Promise<Category[]>
     saveCategory(category: Partial<Category> & { name: string }): Promise<OpResult>
     deleteCategory(id: string): Promise<OpResult>
+    /** grava a ordem das categorias: ids[0] fica em 1.º, ids[1] em 2.º, … */
+    reorderCategories(ids: string[]): Promise<OpResult>
 
     listCandidates(): Promise<Candidate[]>
     saveCandidate(candidate: { id?: string; name: string; active?: boolean }): Promise<OpResult>
