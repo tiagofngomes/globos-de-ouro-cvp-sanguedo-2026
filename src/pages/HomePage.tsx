@@ -1,5 +1,5 @@
 import { motion } from 'framer-motion'
-import { ArrowRight, CalendarClock, Hash, Lock, MousePointerClick, PartyPopper, ShieldCheck, Trophy as TrophyIcon, Vote } from 'lucide-react'
+import { ArrowRight, CalendarClock, EyeOff, Hash, Lock, MousePointerClick, PartyPopper, ShieldCheck, Trophy as TrophyIcon, Vote } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import { usePath } from '../api/ApiContext'
 import type { Category, PublicState } from '../api/types'
@@ -222,13 +222,22 @@ function HowItWorks() {
     { icon: Hash, title: 'Número de membro', text: 'Entre com o seu número de membro da CVP. Sem contas, sem palavras-passe.' },
     { icon: MousePointerClick, title: 'Escolha', text: 'Um colega por categoria. Comece a escrever o nome e nós encontramos.' },
     { icon: ShieldCheck, title: 'Confirme', text: 'Reveja as suas escolhas e submeta tudo de uma só vez.' },
+    {
+      icon: Lock,
+      title: 'Voto fechado',
+      text: 'Depois de submeter, os votos já não podem ser alterados e o seu número fica desativado até à Grande Final (fase 2), onde volta a votar.',
+      warn: true,
+    },
   ]
   return (
     <section>
       <SectionTitle eyebrow="Como votar" title="Simples, rápido e secreto" />
-      <div className="mx-auto mt-8 grid max-w-4xl grid-cols-1 gap-4 sm:grid-cols-3">
+      <div className="mx-auto mt-8 grid max-w-4xl grid-cols-1 gap-4 sm:grid-cols-2">
         {items.map((it, i) => (
-          <div key={it.title} className="flex gap-4 rounded-2xl border border-white/5 bg-white/[.02] p-5">
+          <div
+            key={it.title}
+            className={cn('flex gap-4 rounded-2xl border p-5', 'warn' in it ? 'border-gold-400/30 bg-gold-400/[.05]' : 'border-white/5 bg-white/[.02]')}
+          >
             <div className="font-display text-3xl text-gold-500/60">{i + 1}</div>
             <div>
               <div className="flex items-center gap-2 font-semibold text-gold-100">
@@ -239,14 +248,14 @@ function HowItWorks() {
           </div>
         ))}
       </div>
-      <div className="mx-auto mt-6 flex max-w-2xl items-start gap-3 rounded-2xl border border-cvp-500/30 bg-cvp-500/10 p-4 text-sm text-red-50/80">
-        <Lock className="mt-0.5 h-4 w-4 shrink-0 text-cvp-400" />
+      <div className="mx-auto mt-12 flex max-w-2xl items-start gap-3 rounded-2xl border border-l-2 border-white/10 border-l-cvp-500/70 bg-white/[.03] p-5 text-sm text-gold-50/70">
+        <EyeOff className="mt-0.5 h-4 w-4 shrink-0 text-gold-300" />
         <p>
-          <strong className="text-white">O seu voto é anónimo.</strong> O sistema regista apenas que o seu número já votou — nunca em quem votou. Nem os
+          <strong className="text-gold-50">O seu voto é anónimo.</strong> O sistema regista apenas que o seu número já votou — nunca em quem votou. Nem os
           administradores conseguem ver as escolhas de cada pessoa.
         </p>
       </div>
-      <p className="mt-6 flex items-center justify-center gap-2 text-xs text-gold-100/40">
+      <p className="mt-8 flex items-center justify-center gap-2 text-xs text-gold-100/40">
         <CalendarClock className="h-3.5 w-3.5" /> Horas de Portugal continental
       </p>
     </section>
