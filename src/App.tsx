@@ -4,7 +4,7 @@ import { HashRouter, Navigate, Route, Routes, useLocation } from 'react-router-d
 import { ApiProvider } from './api/ApiContext'
 import { isSupabaseConfigured } from './api/supabaseApi'
 import { PublicLayout } from './components/layout/PublicLayout'
-import { FullPageLoader, ToastProvider } from './components/ui/Feedback'
+import { ConfirmProvider, FullPageLoader, ToastProvider } from './components/ui/Feedback'
 import { HomePage } from './pages/HomePage'
 import { VotePage } from './pages/VotePage'
 import { ResultsPage } from './pages/ResultsPage'
@@ -61,32 +61,34 @@ function ModeRoutes() {
 export default function App() {
   return (
     <ToastProvider>
-      <HashRouter>
-        <RouteEffects />
-        <Routes>
-          <Route
-            path="/demo/*"
-            element={
-              <ApiProvider mode="demo">
-                <ModeRoutes />
-              </ApiProvider>
-            }
-          />
-          <Route
-            path="/*"
-            element={
-              isSupabaseConfigured ? (
-                <ApiProvider mode="live">
+      <ConfirmProvider>
+        <HashRouter>
+          <RouteEffects />
+          <Routes>
+            <Route
+              path="/demo/*"
+              element={
+                <ApiProvider mode="demo">
                   <ModeRoutes />
                 </ApiProvider>
-              ) : (
-                // Sem Supabase configurado, só a demonstração está disponível.
-                <Navigate to="/demo" replace />
-              )
-            }
-          />
-        </Routes>
-      </HashRouter>
+              }
+            />
+            <Route
+              path="/*"
+              element={
+                isSupabaseConfigured ? (
+                  <ApiProvider mode="live">
+                    <ModeRoutes />
+                  </ApiProvider>
+                ) : (
+                  // Sem Supabase configurado, só a demonstração está disponível.
+                  <Navigate to="/demo" replace />
+                )
+              }
+            />
+          </Routes>
+        </HashRouter>
+      </ConfirmProvider>
     </ToastProvider>
   )
 }

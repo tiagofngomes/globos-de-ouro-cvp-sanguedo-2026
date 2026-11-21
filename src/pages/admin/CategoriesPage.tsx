@@ -4,7 +4,7 @@ import { useApi } from '../../api/ApiContext'
 import type { Category } from '../../api/types'
 import { AdminPageTitle, Panel, useAdmin } from '../../components/admin/AdminLayout'
 import { CATEGORY_ICONS, CategoryIcon, CategoryMedallion } from '../../components/ui/CategoryIcon'
-import { FullPageLoader, Modal, useToast } from '../../components/ui/Feedback'
+import { FullPageLoader, Modal, useConfirm, useToast } from '../../components/ui/Feedback'
 import { cn } from '../../lib/cn'
 
 type Draft = Partial<Category> & { name: string }
@@ -13,6 +13,7 @@ export function CategoriesPage() {
   const { api } = useApi()
   const { overview, reload } = useAdmin()
   const toast = useToast()
+  const ask = useConfirm()
   const [list, setList] = useState<Category[] | null>(null)
   const [draft, setDraft] = useState<Draft | null>(null)
   const votingStarted = overview ? overview.phase1_voters > 0 : false
@@ -34,7 +35,7 @@ export function CategoriesPage() {
   }
 
   const remove = async (c: Category) => {
-    if (!window.confirm(`Apagar a categoria "${c.name}"?`)) return
+    if (!(await ask({ title: 'Apagar categoria', message: `Apagar a categoria "${c.name}"?`, confirmText: 'Apagar', danger: true }))) return
     const r = await api.admin.deleteCategory(c.id)
     if (!r.ok) toast(r.error ?? 'Erro', 'error')
     load()

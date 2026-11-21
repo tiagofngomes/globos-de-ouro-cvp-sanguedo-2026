@@ -5,7 +5,7 @@ import type { Candidate } from '../../api/types'
 import { AdminPageTitle, Panel, useAdmin } from '../../components/admin/AdminLayout'
 import { ImportBox } from '../../components/admin/ImportBox'
 import { Avatar } from '../../components/vote/CandidateAutocomplete'
-import { FullPageLoader, useToast } from '../../components/ui/Feedback'
+import { FullPageLoader, Modal, useConfirm, useToast } from '../../components/ui/Feedback'
 import { cn } from '../../lib/cn'
 import { normalizeText } from '../../lib/normalize'
 
@@ -13,11 +13,13 @@ export function CandidatesPage() {
   const { api } = useApi()
   const { reload } = useAdmin()
   const toast = useToast()
+  const ask = useConfirm()
   const [list, setList] = useState<Candidate[] | null>(null)
   const [q, setQ] = useState('')
   const [newName, setNewName] = useState('')
   const [editing, setEditing] = useState<{ id: string; name: string } | null>(null)
   const [importOpen, setImportOpen] = useState(false)
+  const [addOpen, setAddOpen] = useState(false)
 
   const load = useCallback(async () => {
     setList(await api.admin.listCandidates())
@@ -36,8 +38,11 @@ export function CandidatesPage() {
     e.preventDefault()
     if (newName.trim().length < 2) return
     const r = await api.admin.saveCandidate({ name: newName })
-    toast(r.ok ? 'Nome adicionado.' : (r.error ?? 'Erro'), r.ok ? 'success' : 'error')
-    if (r.ok) setNewName('')
+    toast(r.ok ? `${newName.trim()} adicionado.` : (r.error ?? 'Erro'), r.ok ? 'success' : 'error')
+    if (r.ok) {
+      setNewName('')
+      setAddOpen(false)
+    }
     load()
   }
 
@@ -56,7 +61,7 @@ export function CandidatesPage() {
   }
 
   const remove = async (c: Candidate) => {
-    if (!window.confirm(`Apagar "${c.name}"?`)) return
+    if (!(await ask({ title: 'Apagar candidato', message: `Apagar "${c.name}" da lista de candidatos?`, confirmText: 'Apagar', danger: true }))) return
     const r = await api.admin.deleteCandidate(c.id)
     if (!r.ok) toast(r.error ?? 'Erro', 'error')
     load()
@@ -68,25 +73,27 @@ export function CandidatesPage() {
     <div>
       <AdminPageTitle
         title="Candidatos"
-        subtitle={`Todos os membros que podem receber votos. São estes os nomes que aparecem na votação. (${list.filter((c) => c.active).length} ativos)`}
+        subtitle={
+          <>
+            Todos os membros que podem receber votos. São estes os nomes que aparecem na votação.
+            <span className="block">({list.filter((c) => c.active).length} ativos)</span>
+          </>
+        }
         actions={
-          <button onClick={() => setImportOpen(true)} className="btn-gold btn-sm">
-            <Upload className="h-4 w-4" /> Importar nomes
-          </button>
+          <>
+            <button onClick={() => setAddOpen(true)} className="btn-ghost btn-sm">
+              <Plus className="h-4 w-4" /> Adicionar candidato
+            </button>
+            <button onClick={() => setImportOpen(true)} className="btn-gold btn-sm">
+              <Upload className="h-4 w-4" /> Importar nomes
+            </button>
+          </>
         }
       />
       <Panel>
-        <div className="flex flex-col gap-3 sm:flex-row">
-          <div className="relative flex-1">
-            <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-gold-300/50" />
-            <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Pesquisar…" className="input-gala py-3 pl-11" />
-          </div>
-          <form onSubmit={add} className="flex gap-2 sm:w-96">
-            <input value={newName} onChange={(e) => setNewName(e.target.value)} placeholder="Nome completo" className="input-gala py-3" />
-            <button type="submit" className="btn-ghost shrink-0 px-4" aria-label="Adicionar">
-              <Plus className="h-4 w-4" />
-            </button>
-          </form>
+        <div className="relative">
+          <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-gold-300/50" />
+          <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Pesquisar candidato…" className="input-gala py-3 pl-11" />
         </div>
 
         <ul className="mt-5 grid grid-cols-1 gap-2 md:grid-cols-2">
@@ -134,6 +141,34 @@ export function CandidatesPage() {
         </ul>
         {filtered.length === 0 && <p className="py-6 text-center text-sm text-gold-100/40">Nenhum nome encontrado.</p>}
       </Panel>
+
+      <Modal open={addOpen} onClose={() => setAddOpen(false)} title="Adicionar candidato">
+        <form onSubmit={add}>
+          <label htmlFor="new-name" className="label-gala">
+            Nome completo
+          </label>
+          <input
+            id="new-name"
+            value={newName}
+            onChange={(e) => setNewName(e.target.value)}
+            autoFocus
+            autoComplete="off"
+            placeholder="ex.: Maria Silva"
+            className="input-gala"
+          />
+          <p className="mt-2 text-xs text-gold-100/50">
+            É este o nome que aparece na votação. Nomes repetidos (mesmo com acentos ou maiúsculas diferentes) não são aceites.
+          </p>
+          <div className="mt-5 flex justify-end gap-2">
+            <button type="button" onClick={() => setAddOpen(false)} className="btn-ghost btn-sm">
+              Cancelar
+            </button>
+            <button type="submit" disabled={newName.trim().length < 2} className="btn-gold btn-sm">
+              <Plus className="h-4 w-4" /> Adicionar
+            </button>
+          </div>
+        </form>
+      </Modal>
 
       <ImportBox
         open={importOpen}

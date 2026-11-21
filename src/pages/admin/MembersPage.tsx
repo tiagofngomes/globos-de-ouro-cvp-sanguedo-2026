@@ -4,7 +4,7 @@ import { useApi } from '../../api/ApiContext'
 import type { Member } from '../../api/types'
 import { AdminPageTitle, Panel, useAdmin } from '../../components/admin/AdminLayout'
 import { ImportBox } from '../../components/admin/ImportBox'
-import { FullPageLoader, Modal, useToast } from '../../components/ui/Feedback'
+import { FullPageLoader, Modal, useConfirm, useToast } from '../../components/ui/Feedback'
 import { cn } from '../../lib/cn'
 
 /**
@@ -16,6 +16,7 @@ export function MembersPage() {
   const { api } = useApi()
   const { overview, reload } = useAdmin()
   const toast = useToast()
+  const ask = useConfirm()
   const [members, setMembers] = useState<Member[] | null>(null)
   const [q, setQ] = useState('')
   const [importOpen, setImportOpen] = useState(false)
@@ -57,7 +58,15 @@ export function MembersPage() {
   }
 
   const remove = async (m: Member) => {
-    if (!window.confirm(`Remover o código ${m.member_number}?`)) return
+    if (
+      !(await ask({
+        title: 'Remover código',
+        message: `Remover o código ${m.member_number}? Deixa de poder ser usado para votar.`,
+        confirmText: 'Remover',
+        danger: true,
+      }))
+    )
+      return
     const r = await api.admin.deleteMember(m.id)
     if (!r.ok) toast(r.error ?? 'Erro', 'error')
     load()
@@ -71,7 +80,14 @@ export function MembersPage() {
     <div>
       <AdminPageTitle
         title="Eleitores"
-        subtitle={`Os códigos de voto dos eleitores. Cada código vota uma vez por fase. (${active} ativos de ${members.length} · ${used} utilizados na ${currentPhase}ª fase)`}
+        subtitle={
+          <>
+            Os códigos de voto dos eleitores. Cada código vota uma vez por fase.
+            <span className="block">
+              ({active} ativos de {members.length} · {used} utilizados na {currentPhase}ª fase)
+            </span>
+          </>
+        }
         actions={
           <>
             <button onClick={() => setAddOpen(true)} className="btn-ghost btn-sm">

@@ -75,6 +75,63 @@ export function Modal({
   )
 }
 
+// ------------------------------------------------------------ confirmação --
+
+interface ConfirmOptions {
+  title: string
+  message?: ReactNode
+  confirmText?: string
+  cancelText?: string
+  /** ação perigosa ou irreversível: botão vermelho */
+  danger?: boolean
+}
+const ConfirmContext = createContext<(options: ConfirmOptions) => Promise<boolean>>(async () => false)
+
+/**
+ * Janela de confirmação com o estilo do site (em vez das caixas do browser).
+ * Uso: `if (!(await confirm({ title: 'Apagar?' }))) return`
+ */
+export function ConfirmProvider({ children }: { children: ReactNode }) {
+  const [request, setRequest] = useState<(ConfirmOptions & { resolve: (ok: boolean) => void }) | null>(null)
+  const [open, setOpen] = useState(false)
+
+  const confirm = useCallback(
+    (options: ConfirmOptions) =>
+      new Promise<boolean>((resolve) => {
+        setRequest({ ...options, resolve })
+        setOpen(true)
+      }),
+    [],
+  )
+  const answer = useCallback(
+    (ok: boolean) => {
+      request?.resolve(ok)
+      setOpen(false)
+    },
+    [request],
+  )
+  const cancel = useCallback(() => answer(false), [answer])
+
+  return (
+    <ConfirmContext.Provider value={confirm}>
+      {children}
+      <Modal open={open} onClose={cancel} title={request?.title}>
+        {request?.message && <div className="text-sm leading-relaxed text-gold-100/75">{request.message}</div>}
+        <div className="mt-6 flex flex-wrap justify-end gap-2">
+          <button onClick={cancel} className="btn-ghost btn-sm">
+            {request?.cancelText ?? 'Cancelar'}
+          </button>
+          <button autoFocus onClick={() => answer(true)} className={cn('btn-sm', request?.danger ? 'btn-red' : 'btn-gold')}>
+            {request?.confirmText ?? 'Confirmar'}
+          </button>
+        </div>
+      </Modal>
+    </ConfirmContext.Provider>
+  )
+}
+
+export const useConfirm = () => useContext(ConfirmContext)
+
 // ----------------------------------------------------------------- toasts --
 
 type ToastKind = 'success' | 'error' | 'info'

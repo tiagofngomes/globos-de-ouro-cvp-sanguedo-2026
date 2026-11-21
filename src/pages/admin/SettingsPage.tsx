@@ -3,7 +3,7 @@ import { useEffect, useState } from 'react'
 import { useApi } from '../../api/ApiContext'
 import type { EventSettings } from '../../api/types'
 import { AdminPageTitle, Panel, PhaseBadge, useAdmin } from '../../components/admin/AdminLayout'
-import { FullPageLoader, Spinner, useToast } from '../../components/ui/Feedback'
+import { FullPageLoader, Spinner, useConfirm, useToast } from '../../components/ui/Feedback'
 import { isoToLisbonInput, lisbonInputToIso } from '../../lib/format'
 
 type DateKey = 'phase1_opens_at' | 'phase1_closes_at' | 'phase2_opens_at' | 'phase2_closes_at' | 'gala_at'
@@ -31,6 +31,7 @@ export function SettingsPage() {
   const { api } = useApi()
   const { overview, reload } = useAdmin()
   const toast = useToast()
+  const ask = useConfirm()
   const [form, setForm] = useState<Record<DateKey, string> | null>(null)
   const [perCat, setPerCat] = useState(5)
   const [saving, setSaving] = useState(false)
@@ -70,9 +71,12 @@ export function SettingsPage() {
     const gapHours = (new Date(patch.phase2_opens_at!).getTime() - new Date(patch.phase1_closes_at!).getTime()) / 3_600_000
     if (
       gapHours < 24 &&
-      !window.confirm(
-        'A 2ª fase abre menos de 24 horas depois do fecho da 1ª. Recomendamos pelo menos um dia de pausa, para verem os resultados e resolverem empates com calma. Guardar mesmo assim?',
-      )
+      !(await ask({
+        title: 'Pouco tempo entre fases',
+        message:
+          'A 2ª fase abre menos de 24 horas depois do fecho da 1ª. Recomendamos pelo menos um dia de pausa, para verem os resultados e resolverem empates com calma.',
+        confirmText: 'Guardar mesmo assim',
+      }))
     )
       return
     setSaving(true)
@@ -83,10 +87,26 @@ export function SettingsPage() {
   const now = new Date().toISOString()
   const closeNow = async () => {
     if (overview.phase === 'phase1') {
-      if (!window.confirm('Encerrar AGORA a 1ª fase?')) return
+      if (
+        !(await ask({
+          title: 'Encerrar a 1ª fase agora?',
+          message: 'A votação da 1ª fase fecha de imediato para toda a gente.',
+          confirmText: 'Encerrar agora',
+          danger: true,
+        }))
+      )
+        return
       await update({ phase1_closes_at: now }, '1ª fase encerrada.')
     } else if (overview.phase === 'phase2') {
-      if (!window.confirm('Encerrar AGORA a 2ª fase?')) return
+      if (
+        !(await ask({
+          title: 'Encerrar a 2ª fase agora?',
+          message: 'A votação da 2ª fase fecha de imediato para toda a gente.',
+          confirmText: 'Encerrar agora',
+          danger: true,
+        }))
+      )
+        return
       await update({ phase2_closes_at: now }, '2ª fase encerrada.')
     }
     setForm(null)
@@ -94,7 +114,15 @@ export function SettingsPage() {
 
   const resetVotes = async (phase: 1 | 2) => {
     if (resetText !== 'APAGAR') return toast('Escreva APAGAR para confirmar.', 'error')
-    if (!window.confirm(`Apagar TODOS os votos da ${phase === 1 ? '1ª fase' : '2ª fase'}? Esta ação é irreversível.`)) return
+    if (
+      !(await ask({
+        title: `Apagar todos os votos da ${phase}ª fase?`,
+        message: 'Esta ação é irreversível. Os códigos voltam a poder votar nesta fase.',
+        confirmText: 'Apagar votos',
+        danger: true,
+      }))
+    )
+      return
     const r = await api.admin.resetVotes(phase, resetText)
     toast(r.ok ? 'Votos apagados.' : (r.error ?? 'Erro'), r.ok ? 'success' : 'error')
     setResetText('')
@@ -158,8 +186,17 @@ export function SettingsPage() {
                 : 'Os resultados estão privados. Só os administradores os veem.'}
             </p>
             <button
-              onClick={() => {
-                if (!s.results_published && !window.confirm('Publicar os vencedores para todos?')) return
+              onClick={async () => {
+                if (
+                  !s.results_published &&
+                  !(await ask({
+                    title: 'Publicar os vencedores?',
+                    message: 'Toda a gente passa a ver os vencedores na página de resultados. Façam isto só depois da gala.',
+                    confirmText: 'Publicar',
+                    danger: true,
+                  }))
+                )
+                  return
                 update({ results_published: !s.results_published }, s.results_published ? 'Resultados ocultados.' : 'Resultados publicados!')
               }}
               className={s.results_published ? 'btn-ghost w-full' : 'btn-red w-full'}

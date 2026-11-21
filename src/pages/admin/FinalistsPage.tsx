@@ -5,7 +5,7 @@ import type { Category, ProposalRow, ResultRow } from '../../api/types'
 import { ResultsHidden } from '../../components/admin/ResultsHidden'
 import { AdminPageTitle, Panel, useAdmin } from '../../components/admin/AdminLayout'
 import { CategoryMedallion } from '../../components/ui/CategoryIcon'
-import { FullPageLoader, Spinner, useToast } from '../../components/ui/Feedback'
+import { FullPageLoader, Spinner, useConfirm, useToast } from '../../components/ui/Feedback'
 import { cn } from '../../lib/cn'
 import { formatDateTime, plural } from '../../lib/format'
 
@@ -18,6 +18,7 @@ export function FinalistsPage() {
   const { api } = useApi()
   const { overview, reload } = useAdmin()
   const toast = useToast()
+  const ask = useConfirm()
   const [categories, setCategories] = useState<Category[] | null>(null)
   const [proposal, setProposal] = useState<ProposalRow[]>([])
   const [current, setCurrent] = useState<ResultRow[]>([])
@@ -70,7 +71,15 @@ export function FinalistsPage() {
     const bad = categories.find((c) => !(selection[c.id]?.length > 0))
     if (bad) return toast(`Selecione pelo menos um finalista em “${bad.name}”.`, 'error')
     const odd = categories.filter((c) => (selection[c.id]?.length ?? 0) !== n)
-    if (odd.length && !window.confirm(`${odd.length} categoria(s) não têm exatamente ${n} finalistas. Confirmar mesmo assim?`)) return
+    if (
+      odd.length &&
+      !(await ask({
+        title: 'Confirmar finalistas',
+        message: `${odd.length === 1 ? 'Uma categoria não tem' : `${odd.length} categorias não têm`} exatamente ${n} finalistas. Confirmar mesmo assim?`,
+        confirmText: 'Confirmar mesmo assim',
+      }))
+    )
+      return
     setBusy(true)
     const r = await api.admin.setFinalists(selection)
     setBusy(false)
@@ -80,7 +89,15 @@ export function FinalistsPage() {
   }
 
   const reset = async () => {
-    if (!window.confirm('Repor o apuramento? Os finalistas atuais serão removidos.')) return
+    if (
+      !(await ask({
+        title: 'Repor apuramento',
+        message: 'Os finalistas atuais serão removidos e terão de ser apurados de novo.',
+        confirmText: 'Repor',
+        danger: true,
+      }))
+    )
+      return
     const r = await api.admin.resetFinalists()
     if (!r.ok) toast(r.error ?? 'Erro.', 'error')
     await reload()
