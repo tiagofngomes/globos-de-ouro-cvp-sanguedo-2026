@@ -191,7 +191,19 @@ export function SettingsPage() {
                   !s.results_published &&
                   !(await ask({
                     title: 'Publicar os vencedores?',
-                    message: 'Toda a gente passa a ver os vencedores na página de resultados. Façam isto só depois da gala.',
+                    message: (
+                      <ul className="list-disc space-y-2 pl-5">
+                        <li>
+                          Na página inicial, o botão de votar é substituído por <strong className="text-gold-100">“Ver vencedores”</strong>, que abre a página
+                          com o vencedor de cada categoria (sem números de votos).
+                        </li>
+                        <li>Toda a gente passa a ver os vencedores.</li>
+                        <li>
+                          <strong className="text-red-200">Se ainda houver alguma votação aberta, termina nesse momento.</strong>
+                        </li>
+                        <li>É o último passo de tudo: façam isto só depois de apresentarem a gala.</li>
+                      </ul>
+                    ),
                     confirmText: 'Publicar',
                     danger: true,
                   }))
