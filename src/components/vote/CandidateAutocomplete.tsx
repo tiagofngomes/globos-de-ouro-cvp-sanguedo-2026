@@ -24,6 +24,7 @@ export function CandidateAutocomplete({ candidates, value, onChange, categoryNam
   const [active, setActive] = useState(0)
   const [browse, setBrowse] = useState(false)
   const inputRef = useRef<HTMLInputElement>(null)
+  const browseRef = useRef<HTMLButtonElement>(null)
   const listId = 'cand-list'
 
   const results = useMemo(() => searchNames(candidates, query, (c) => c.name, 8), [candidates, query])
@@ -62,17 +63,9 @@ export function CandidateAutocomplete({ candidates, value, onChange, categoryNam
     }
   }
 
-  // ao focar no telemóvel, levar o campo para o topo para a lista ficar visível acima do teclado
-  const onFocus = () => {
-    if (window.innerWidth < 640) {
-      setTimeout(() => {
-        const el = inputRef.current
-        if (!el) return
-        const y = el.getBoundingClientRect().top + window.scrollY - 90
-        window.scrollTo({ top: y, behavior: 'smooth' })
-      }, 250)
-    }
-  }
+  // ao focar no campo, ou ao abrir a lista completa, levar o campo para o topo do ecrã
+  // para a lista ficar à vista (acima do teclado e da barra de baixo)
+  const onFocus = () => bringToTop(inputRef.current)
 
   if (value) {
     return (
@@ -177,7 +170,12 @@ export function CandidateAutocomplete({ candidates, value, onChange, categoryNam
       {!query.trim() && (
         <div className="mt-4">
           <button
-            onClick={() => setBrowse((b) => !b)}
+            ref={browseRef}
+            onClick={() => {
+              const opening = !browse
+              setBrowse(opening)
+              if (opening) bringToTop(browseRef.current)
+            }}
             className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.2em] text-gold-300/80 hover:text-gold-200"
           >
             <List className="h-4 w-4" /> {browse ? 'Esconder lista' : 'Ver todos os nomes'}
@@ -215,6 +213,20 @@ export function CandidateAutocomplete({ candidates, value, onChange, categoryNam
       )}
     </div>
   )
+}
+
+/**
+ * No telemóvel, desliza a página para o elemento ficar perto do topo (abaixo do
+ * cabeçalho). Repete enquanto o teclado abre, porque o telemóvel pode
+ * reposicionar a página nesse momento.
+ */
+function bringToTop(el: HTMLElement | null) {
+  if (!el || window.innerWidth >= 640) return
+  const go = () => {
+    const y = el.getBoundingClientRect().top + window.scrollY - 96
+    if (Math.abs(window.scrollY - y) > 8) window.scrollTo({ top: Math.max(0, y), behavior: 'smooth' })
+  }
+  ;[60, 350, 700].forEach((ms) => window.setTimeout(go, ms))
 }
 
 function Highlight({ text, ranges }: { text: string; ranges: Array<[number, number]> }) {

@@ -63,13 +63,13 @@ export function Trophy({ className, glow = true, icon }: { className?: string; g
 
         {/* placa CVP: cruz vermelha sempre sobre branco */}
         <rect x="49" y="130" width="22" height="14" rx="2" fill="#ffffff" stroke="#8a611b" strokeWidth=".6" />
-        <path d="M58 132.5h4v3.5h3.5v4H62v3.5h-4V140h-3.5v-4H58z" fill="#e30613" />
+        <path d="M58.5 132.5h3v3h3v3h-3v3h-3v-3h-3v-3h3z" fill="#e30613" />
       </svg>
 
       {/* ícone da categoria gravado no globo (centro do globo: 50% / 27,8% do desenho) */}
       {icon && (
         <div className="absolute left-1/2 top-[27.8%] grid aspect-square w-[40%] -translate-x-1/2 -translate-y-1/2 place-items-center">
-          <CategoryIcon icon={icon} className="h-full w-full text-gala-900/85 drop-shadow-[0_1px_0_rgba(255,251,234,.6)]" />
+          <CategoryIcon icon={icon} className="h-full w-full text-[#7a5416] drop-shadow-[0_1px_0_rgba(255,251,234,.65)]" />
         </div>
       )}
     </div>

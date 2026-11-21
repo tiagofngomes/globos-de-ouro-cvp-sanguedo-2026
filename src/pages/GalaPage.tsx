@@ -396,40 +396,49 @@ function RaceSlide({ show, sound, onDone }: { show: CategoryShow; sound: boolean
   const isWinner = (r: ResultRow) => settled && show.winners.some((w) => w.candidate_id === r.candidate_id)
 
   return (
-    <div className="flex h-full w-full max-w-[94vw] flex-col text-center">
-      <div className="eyebrow text-[length:min(1.8vw,2.8vh)]">{show.category.name}</div>
-      <motion.h2
-        initial={{ opacity: 0, scale: 0.9 }}
-        animate={{ opacity: 1, scale: 1 }}
-        transition={{ delay: 0.2 }}
-        className="mt-[1vh] font-serif text-[length:min(4.4vw,7vh)] italic leading-tight text-gold-50"
-      >
-        E o Globo de Ouro vai para…
-      </motion.h2>
+    <div className="flex h-full w-full max-w-[94vw] flex-col gap-[2vh] text-center md:flex-row md:items-stretch md:gap-[3vw] md:text-left">
+      {/* títulos à esquerda: o gráfico fica com quase toda a altura do ecrã */}
+      <div className="flex shrink-0 flex-col justify-center md:w-[24vw]">
+        <div className="eyebrow text-[length:min(1.6vw,2.6vh)] leading-relaxed">{show.category.name}</div>
+        <motion.h2
+          initial={{ opacity: 0, x: -20 }}
+          animate={{ opacity: 1, x: 0 }}
+          transition={{ delay: 0.2 }}
+          className="mt-[2vh] font-serif text-[length:min(4.4vw,7vh)] italic leading-[1.1] text-gold-50 md:text-[length:min(3.9vw,7.5vh)]"
+        >
+          E o Globo de Ouro vai para…
+        </motion.h2>
+        <motion.div
+          initial={{ scaleX: 0 }}
+          animate={{ scaleX: 1 }}
+          transition={{ delay: 0.6, duration: 0.8 }}
+          className="divider-gold mt-[3vh] hidden w-[12vw] origin-left md:block"
+        />
+      </div>
 
       {nominees.length === 0 ? (
-        <p className="mt-16 text-2xl text-gold-100/60">Sem votos nesta categoria.</p>
+        <p className="m-auto text-2xl text-gold-100/60">Sem votos nesta categoria.</p>
       ) : (
-        <div className="mt-[3vh] flex min-h-0 flex-1 items-stretch justify-center gap-[min(3vw,5vh)]">
+        <div className="flex min-h-0 flex-1 items-stretch justify-center gap-[min(2.2vw,3.5vh)]">
           {nominees.map((r, k) => {
             const win = isWinner(r)
             const lose = settled && !win
             return (
-              <div key={r.candidate_id} className="flex w-[min(15vw,27vh)] min-w-0 flex-col items-center">
+              <div key={r.candidate_id} className="flex min-w-0 max-w-[min(13vw,26vh)] flex-1 flex-col items-center text-center">
                 {/* valor por cima da barra: "?" enquanto brinca, valores reais no fim */}
-                <div className="flex h-[14vh] flex-col items-center justify-end">
+                <div className="flex h-[12vh] shrink-0 flex-col items-center justify-end">
                   {settled ? (
                     <motion.div initial={{ opacity: 0, y: 10, scale: 0.8 }} animate={{ opacity: 1, y: 0, scale: 1 }} transition={{ delay: 0.25 }}>
-                      {win && <Crown className="mx-auto h-[min(3.6vw,6vh)] w-[min(3.6vw,6vh)] text-gold-300 drop-shadow-[0_0_18px_rgba(236,201,90,.9)]" />}
+                      {win && <Crown className="mx-auto h-[min(3.4vw,5.5vh)] w-[min(3.4vw,5.5vh)] text-gold-300 drop-shadow-[0_0_18px_rgba(236,201,90,.9)]" />}
                       <div
                         className={cn(
-                          'font-display text-[length:min(3.8vw,6.4vh)] font-bold tabular-nums leading-none',
+                          'font-display text-[length:min(3.4vw,6vh)] font-bold tabular-nums leading-none',
                           win ? 'text-gold-100' : 'text-gold-50/50',
                         )}
                       >
                         {formatPct(pct(r.votes, show.total))}
                       </div>
-                      <div className={cn('mt-1 text-[length:min(1.6vw,2.6vh)] tabular-nums', win ? 'text-gold-200/80' : 'text-gold-50/35')}>
+                      <div className={cn('mt-1 text-[length:min(1.5vw,2.5vh)] tabular-nums', win ? 'text-gold-200/80' : 'text-gold-50/35')}>
                         {plural(r.votes, 'voto', 'votos')}
                       </div>
                     </motion.div>
@@ -437,7 +446,7 @@ function RaceSlide({ show, sound, onDone }: { show: CategoryShow; sound: boolean
                     <motion.span
                       animate={{ opacity: [0.35, 0.9, 0.35] }}
                       transition={{ duration: 0.9, repeat: Infinity }}
-                      className="font-display text-[length:min(4.2vw,7vh)] text-gold-200"
+                      className="font-display text-[length:min(4vw,7vh)] text-gold-200"
                     >
                       ?
                     </motion.span>
@@ -445,7 +454,7 @@ function RaceSlide({ show, sound, onDone }: { show: CategoryShow; sound: boolean
                 </div>
 
                 {/* barra (sempre no mesmo lugar; só a altura muda) */}
-                <div className="relative mt-2 flex w-full flex-1 items-end">
+                <div className="relative mt-[1vh] flex min-h-0 w-full flex-1 items-end">
                   <motion.div
                     className={cn(
                       'relative w-full overflow-hidden rounded-t-2xl transition-[background-color,box-shadow] duration-700',
@@ -463,19 +472,10 @@ function RaceSlide({ show, sound, onDone }: { show: CategoryShow; sound: boolean
                 </div>
 
                 {/* nome */}
-                <div className="mt-[1.5vh] flex h-[23vh] shrink-0 flex-col items-center justify-start gap-2">
+                <div className="mt-[1.5vh] h-[12vh] w-full shrink-0">
                   <span
                     className={cn(
-                      'grid h-[min(5vw,8.5vh)] w-[min(5vw,8.5vh)] shrink-0 place-items-center rounded-full font-display text-[length:min(1.7vw,2.9vh)] font-semibold text-gala-900 transition-opacity duration-700',
-                      lose && 'opacity-40',
-                    )}
-                    style={{ background: 'linear-gradient(135deg,#fdf8e8,#e3b53a 50%,#8a611b)' }}
-                  >
-                    {initials(r.candidate_name)}
-                  </span>
-                  <span
-                    className={cn(
-                      'line-clamp-3 font-display text-[length:min(2.1vw,3.5vh)] leading-[1.12] transition-colors duration-700',
+                      'line-clamp-3 font-display text-[length:min(1.8vw,3.1vh)] leading-[1.1] transition-colors duration-700',
                       win ? 'text-gold-100' : lose ? 'text-gold-50/40' : 'text-gold-50',
                     )}
                   >
