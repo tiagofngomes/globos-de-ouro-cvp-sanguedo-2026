@@ -178,7 +178,7 @@ function Timeline({ state, offset }: { state: PublicState; offset: number }) {
             <div>
               <div className="flex items-center gap-2 sm:justify-center">
                 <span className="font-display text-lg text-gold-100">{s.title}</span>
-                {s.active && <span className="rounded-full bg-cvp-500 px-2 py-0.5 text-[9px] font-bold uppercase tracking-widest text-white">Agora</span>}
+                {s.active && <span className="rounded-full bg-cvp-500 px-2 py-0.5 text-[9px] font-bold uppercase tracking-widest text-white">A decorrer</span>}
                 {s.done && <span className="text-[10px] uppercase tracking-widest text-gold-500">Concluído</span>}
               </div>
               <p className="mt-1 text-xs text-gold-100/55">{s.text}</p>
