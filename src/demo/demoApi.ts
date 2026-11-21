@@ -3,6 +3,7 @@
  * Tudo vive no navegador (localStorage); nada é enviado para o Supabase.
  * Reproduz as mesmas regras do servidor para que a experiência seja fiel.
  */
+import { isGalaDayReached } from '../lib/format'
 import { normalizeMemberNumber, normalizeText } from '../lib/normalize'
 import type {
   AdminOverview,
@@ -443,6 +444,9 @@ export function createDemoApi(): VotingApi {
           (next.phase2_closes_at !== null && ms(next.phase2_closes_at)! <= ms(next.phase2_opens_at)!)
         )
           return { ok: false, error: 'As datas estão fora de ordem.' }
+        // como no servidor: publicar só a partir do dia da gala
+        if (patch.results_published && !state.settings.results_published && !isGalaDayReached(next.gala_at, Date.now()))
+          return { ok: false, error: 'Os resultados só podem ser publicados a partir do dia da gala.' }
         state.settings = next
         if (patch.results_published !== undefined) {
           if (patch.results_published) {

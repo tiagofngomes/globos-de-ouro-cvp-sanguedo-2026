@@ -104,6 +104,28 @@ begin
 end
 $$;
 
+-- Os resultados só podem ser publicados a partir do dia da gala (hora de Lisboa),
+-- para ninguém os publicar por engano mais cedo. Ocultar é sempre possível.
+create or replace function public.guard_results_publication()
+returns trigger
+language plpgsql
+set search_path = public
+as $$
+begin
+  if new.results_published and not coalesce(old.results_published, false) then
+    if new.gala_at is null
+       or (now() at time zone 'Europe/Lisbon')::date < (new.gala_at at time zone 'Europe/Lisbon')::date then
+      raise exception 'Os resultados só podem ser publicados a partir do dia da gala.' using errcode = 'P0001';
+    end if;
+  end if;
+  return new;
+end
+$$;
+drop trigger if exists guard_results_publication on public.event_settings;
+create trigger guard_results_publication
+  before update on public.event_settings
+  for each row execute function public.guard_results_publication();
+
 create table if not exists public.categories (
   id          uuid primary key default gen_random_uuid(),
   slug        text not null unique,

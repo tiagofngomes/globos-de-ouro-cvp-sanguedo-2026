@@ -335,7 +335,20 @@ ok(st.phase === 'awaiting_gala', `após fecho: ${st.phase}`)
 s = await val(`select public.start_voting_session('1010')`)
 ok(s.error === 'voting_closed', 'sem votações após o fecho')
 await asUser(adminId)
-await db.exec(`update public.event_settings set results_published = true where id;`)
+// publicar só a partir do dia da gala
+const tryPublish = async () => {
+  try {
+    await db.exec(`update public.event_settings set results_published = true where id;`)
+    return true
+  } catch (e) {
+    return /dia da gala/.test(e.message) ? false : e.message
+  }
+}
+ok((await tryPublish()) === false, 'sem dia da gala definido, não deixa publicar')
+await db.exec(`update public.event_settings set gala_at = now() + interval '3 days' where id;`)
+ok((await tryPublish()) === false, 'antes do dia da gala, não deixa publicar')
+await db.exec(`update public.event_settings set gala_at = now() where id;`)
+ok((await tryPublish()) === true, 'no dia da gala, deixa publicar')
 await asAnon('10.6.6.6')
 pub = await val(`select public.get_public_results()`)
 const cat0 = pub.categories[0]

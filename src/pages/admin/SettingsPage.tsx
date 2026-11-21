@@ -5,7 +5,7 @@ import type { EventSettings } from '../../api/types'
 import { AdminPageTitle, Panel, PhaseBadge, useAdmin } from '../../components/admin/AdminLayout'
 import { DateTimeField } from '../../components/admin/DateTimeField'
 import { FullPageLoader, Spinner, useConfirm, useToast } from '../../components/ui/Feedback'
-import { isoToLisbonInput, lisbonInputToIso } from '../../lib/format'
+import { formatDate, isGalaDayReached, isoToLisbonInput, lisbonInputToIso } from '../../lib/format'
 
 type DateKey = 'phase1_opens_at' | 'phase1_closes_at' | 'phase2_opens_at' | 'phase2_closes_at' | 'gala_at'
 
@@ -55,6 +55,8 @@ export function SettingsPage() {
 
   if (!overview || !form) return <FullPageLoader />
   const s = overview.settings
+  // publicar só a partir do dia da gala (o servidor também o garante)
+  const canPublish = isGalaDayReached(s.gala_at, new Date(overview.server_now).getTime())
 
   // ordem das datas, verificada enquanto se escreve (o servidor volta a verificar ao guardar)
   const iso = (k: DateKey) => (form[k] ? lisbonInputToIso(form[k], DATE_FIELDS.find((f) => f.key === k)?.endOfMinute ? 59 : 0) : null)
@@ -203,6 +205,13 @@ export function SettingsPage() {
                 ? 'Os vencedores estão visíveis publicamente na página de resultados.'
                 : 'Os resultados estão privados. Só os administradores os veem.'}
             </p>
+            {!s.results_published && !canPublish && (
+              <p className="mb-4 rounded-xl border border-gold-400/20 bg-gold-400/5 p-3 text-xs text-gold-100/70">
+                {s.gala_at
+                  ? `O botão fica disponível no dia da gala (${formatDate(s.gala_at)}), para não haver o risco de publicar mais cedo.`
+                  : 'Defina primeiro o dia da gala no calendário. O botão fica disponível a partir desse dia.'}
+              </p>
+            )}
             <button
               onClick={async () => {
                 if (
@@ -229,6 +238,7 @@ export function SettingsPage() {
                   return
                 update({ results_published: !s.results_published }, s.results_published ? 'Resultados ocultados.' : 'Resultados publicados!')
               }}
+              disabled={!s.results_published && !canPublish}
               className={s.results_published ? 'btn-ghost w-full' : 'btn-red w-full'}
             >
               {s.results_published ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
