@@ -30,7 +30,8 @@ export default function AdminArea() {
 
 export function GalaArea() {
   return (
-    <AdminGate>
+    // entra direto no Modo Gala, sem mostrar o menu do painel
+    <AdminGate loginSubtitle="Entre para abrir o Modo Gala">
       <GalaPage />
     </AdminGate>
   )

@@ -8,7 +8,7 @@ import { CvpBrand } from '../ui/CvpBrand'
 import { Spinner } from '../ui/Feedback'
 import { Trophy } from '../ui/Trophy'
 
-export function AdminLogin({ onSuccess }: { onSuccess: () => void }) {
+export function AdminLogin({ onSuccess, subtitle }: { onSuccess: () => void; subtitle?: string }) {
   const { api, isDemo } = useApi()
   const path = usePath()
   const [email, setEmail] = useState('')
@@ -35,7 +35,7 @@ export function AdminLogin({ onSuccess }: { onSuccess: () => void }) {
         </div>
         <Trophy className="mx-auto mt-6 h-24 w-16" />
         <h1 className="mt-4 text-center font-display text-2xl text-gold-50">Área reservada</h1>
-        <p className="mt-1 text-center text-xs text-gold-100/50">Painel de administração dos Globos de Ouro</p>
+        <p className="mt-1 text-center text-xs text-gold-100/50">{subtitle ?? 'Painel de administração dos Globos de Ouro'}</p>
 
         {isDemo ? (
           <p className="mt-6 rounded-xl border border-gold-400/20 bg-gold-400/5 p-3 text-center text-xs text-gold-100/70">

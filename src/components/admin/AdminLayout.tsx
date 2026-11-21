@@ -19,7 +19,7 @@ const Ctx = createContext<AdminCtx>({ overview: null, reload: async () => {} })
 export const useAdmin = () => useContext(Ctx)
 
 /** Protege a área de administração: exige sessão de administrador. */
-export function AdminGate({ children }: { children: ReactNode }) {
+export function AdminGate({ children, loginSubtitle }: { children: ReactNode; loginSubtitle?: string }) {
   const { api } = useApi()
   const [status, setStatus] = useState<'loading' | 'in' | 'out'>('loading')
 
@@ -37,7 +37,7 @@ export function AdminGate({ children }: { children: ReactNode }) {
   }, [check])
 
   if (status === 'loading') return <FullPageLoader label="A verificar credenciais…" />
-  if (status === 'out') return <AdminLogin onSuccess={() => setStatus('in')} />
+  if (status === 'out') return <AdminLogin subtitle={loginSubtitle} onSuccess={() => setStatus('in')} />
   return <>{children}</>
 }
 

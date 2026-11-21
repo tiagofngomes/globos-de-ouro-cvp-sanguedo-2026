@@ -8,6 +8,19 @@ export function formatDateTime(iso: string | null | undefined): string {
   return `${date}, às ${time}`
 }
 
+/** Dia de calendário (AAAA-MM-DD) na hora de Lisboa, para comparar datas. */
+export function lisbonDay(value: number | string | Date): string {
+  return new Intl.DateTimeFormat('en-CA', { timeZone: TZ, year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date(value))
+}
+
+/**
+ * O Modo Gala fica disponível a partir das 00h00 (Lisboa) do dia da gala e
+ * daí em diante — a festa pode prolongar-se pela madrugada seguinte.
+ */
+export function isGalaDayReached(galaAt: string | null | undefined, nowMs: number): boolean {
+  return Boolean(galaAt) && lisbonDay(nowMs) >= lisbonDay(galaAt as string)
+}
+
 export function formatShortDate(iso: string | null | undefined): string {
   if (!iso) return '—'
   return new Intl.DateTimeFormat('pt-PT', { timeZone: TZ, day: 'numeric', month: 'short' }).format(new Date(iso))

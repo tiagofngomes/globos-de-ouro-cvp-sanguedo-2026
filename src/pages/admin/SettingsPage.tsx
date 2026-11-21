@@ -19,7 +19,12 @@ const DATE_FIELDS: Array<{ key: DateKey; label: string; help: string; optional?:
     optional: true,
     endOfMinute: true,
   },
-  { key: 'gala_at', label: 'Data da gala', help: 'Opcional. Mostra uma contagem decrescente para a gala.', optional: true },
+  {
+    key: 'gala_at',
+    label: 'Data da gala',
+    help: 'A partir das 00h00 deste dia (e daí em diante), o cartão “Gala” da página inicial dá acesso ao Modo Gala, com credenciais.',
+    optional: true,
+  },
 ]
 
 export function SettingsPage() {

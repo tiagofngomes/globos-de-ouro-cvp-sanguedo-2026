@@ -9,7 +9,7 @@ import { CvpRibbon } from '../components/ui/CvpBrand'
 import { FullPageLoader } from '../components/ui/Feedback'
 import { Trophy } from '../components/ui/Trophy'
 import { usePublicState } from '../hooks/usePublicState'
-import { formatDateTime } from '../lib/format'
+import { formatDateTime, isGalaDayReached } from '../lib/format'
 import { cn } from '../lib/cn'
 
 const fadeUp = {
@@ -27,7 +27,7 @@ export function HomePage() {
   return (
     <div className="flex flex-col gap-16 pb-8 sm:gap-24">
       <Hero state={state} offset={offset} onPhaseChange={refresh} />
-      <Timeline state={state} />
+      <Timeline state={state} offset={offset} />
       <Categories categories={state.categories} />
       <HowItWorks />
     </div>
@@ -129,7 +129,10 @@ function Hero({ state, offset, onPhaseChange }: { state: PublicState; offset: nu
 
 // ---------------------------------------------------------------- timeline --
 
-function Timeline({ state }: { state: PublicState }) {
+function Timeline({ state, offset }: { state: PublicState; offset: number }) {
+  const path = usePath()
+  // no dia da gala (e daí em diante) o cartão dá acesso ao Modo Gala, com credenciais
+  const galaOpen = isGalaDayReached(state.gala_at, Date.now() + offset)
   const order = ['pre_voting', 'phase1', 'counting', 'phase2', 'awaiting_gala', 'results']
   const idx = order.indexOf(state.phase === 'paused' ? 'phase1' : state.phase)
   const steps = [
@@ -145,8 +148,9 @@ function Timeline({ state }: { state: PublicState }) {
       icon: PartyPopper,
       title: 'Gala',
       text: state.gala_at ? formatDateTime(state.gala_at) : 'Data a anunciar',
-      active: idx >= 4,
-      done: idx === 5,
+      active: idx >= 4 || galaOpen,
+      done: false,
+      to: galaOpen ? path('/gala') : undefined,
     },
   ]
   return (
@@ -177,6 +181,11 @@ function Timeline({ state }: { state: PublicState }) {
                 {s.done && <span className="text-[10px] uppercase tracking-widest text-gold-500">Concluído</span>}
               </div>
               <p className="mt-1 text-xs text-gold-100/55">{s.text}</p>
+              {'to' in s && s.to && (
+                <Link to={s.to} className="btn-gold btn-sm mt-3">
+                  <Lock className="h-3.5 w-3.5" /> Abrir Modo Gala
+                </Link>
+              )}
             </div>
           </motion.li>
         ))}
