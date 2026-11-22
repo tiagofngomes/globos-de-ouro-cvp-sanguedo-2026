@@ -571,7 +571,13 @@ function RaceSlide({ show, sound }: { show: CategoryShow; sound: boolean }) {
                 {/* valor por cima da barra: "?" enquanto brinca, valores reais no fim */}
                 <div className="flex h-[15vh] shrink-0 flex-col items-center justify-end">
                   {settled ? (
-                    <motion.div initial={{ opacity: 0, y: 10, scale: 0.8 }} animate={{ opacity: 1, y: 0, scale: 1 }} transition={{ delay: 0.25 }}>
+                    // aparece logo, no instante do "tádá" do som (sem atraso)
+                    <motion.div
+                      data-reveal
+                      initial={{ opacity: 1, y: 6, scale: 0.85 }}
+                      animate={{ opacity: 1, y: 0, scale: 1 }}
+                      transition={{ duration: 0.15, ease: 'easeOut' }}
+                    >
                       {win && <Crown className="mx-auto h-[min(3.4vw,5.5vh)] w-[min(3.4vw,5.5vh)] text-gold-300 drop-shadow-[0_0_18px_rgba(236,201,90,.9)]" />}
                       <div
                         className={cn(
