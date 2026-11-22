@@ -39,12 +39,12 @@ describe('searchNames', () => {
 describe('nomes com só as iniciais em maiúscula', () => {
   it('converte nomes em maiúsculas, com acentos e partículas', () => {
     expect(formatPersonName('MARIA DA CONCEIÇÃO SANTOS')).toBe('Maria da Conceição Santos')
-    expect(formatPersonName('TÂNIA BATISTA')).toBe('Tânia Batista')
+    expect(formatPersonName('ÂNGELA REBORDÃO')).toBe('Ângela Rebordão')
     expect(formatPersonName('JOÃO DOS SANTOS E SILVA')).toBe('João dos Santos e Silva')
     expect(formatPersonName('ANA  MARIA-JOÃO  D’ALMEIDA')).toBe('Ana Maria-João D’Almeida')
   })
   it('converte nomes todos em minúsculas', () => {
-    expect(formatPersonName('cátia santos')).toBe('Cátia Santos')
+    expect(formatPersonName('fábia lameiras')).toBe('Fábia Lameiras')
   })
   it('mantém nomes já escritos com maiúsculas e minúsculas', () => {
     expect(formatPersonName('Ana McDonald')).toBe('Ana McDonald')
