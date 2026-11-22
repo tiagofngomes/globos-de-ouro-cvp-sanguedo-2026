@@ -62,6 +62,9 @@ function ModeRoutes() {
   )
 }
 
+/** Modo demonstração: só em desenvolvimento (ou se o Supabase não estiver configurado). */
+const DEMO_ENABLED = import.meta.env.DEV || !isSupabaseConfigured
+
 export default function App() {
   return (
     <ErrorBoundary>
@@ -73,9 +76,15 @@ export default function App() {
               <Route
                 path="/demo/*"
                 element={
-                  <ApiProvider mode="demo">
-                    <ModeRoutes />
-                  </ApiProvider>
+                  // a demonstração só existe no computador de testes (npm run dev): no site
+                  // publicado, quem abrir /#/demo vai para a página inicial real
+                  DEMO_ENABLED ? (
+                    <ApiProvider mode="demo">
+                      <ModeRoutes />
+                    </ApiProvider>
+                  ) : (
+                    <Navigate to="/" replace />
+                  )
                 }
               />
               <Route
