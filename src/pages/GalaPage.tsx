@@ -35,7 +35,7 @@ type Slide =
 /** Duração do gráfico "a brincar" antes de parar nos valores reais (e aparecer a coroa). */
 const TEASE_MS = 7000
 /** O som do gráfico começa este tempo depois de o gráfico aparecer. */
-const SOUND_DELAY_MS = 1000
+const SOUND_DELAY_MS = 1200
 
 /**
  * MODO GALA — apresentação em ecrã completo para a cerimónia final.
@@ -531,7 +531,7 @@ function RaceSlide({ show, sound }: { show: CategoryShow; sound: boolean }) {
       // silêncio: todas iguais, a meio
       at(calmAt, () => setHeights(nominees.map(() => 50)))
     }
-    // o som da gala começa 1 s depois do gráfico; as barras param e aparece a coroa aos 7 s
+    // o som da gala começa 1,2 s depois do gráfico; as barras param e aparece a coroa aos 7 s
     // (se o apresentador avançar antes disso, o som já não começa)
     if (sound) at(SOUND_DELAY_MS, () => playChartSound())
     // valores reais e coroa no vencedor
