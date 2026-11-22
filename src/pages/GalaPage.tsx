@@ -32,12 +32,14 @@ type Slide =
   | { kind: 'winner'; ci: number }
   | { kind: 'finale' }
 
-/** Duração do gráfico "a brincar" antes de parar nos valores reais. */
-const TEASE_MS = 6300
+/** Duração do gráfico "a brincar" antes de parar nos valores reais (e aparecer a coroa). */
+const TEASE_MS = 7000
+/** O som do gráfico começa este tempo depois de o gráfico aparecer. */
+const SOUND_DELAY_MS = 1000
 
 /**
  * MODO GALA — apresentação em ecrã completo para a cerimónia final.
- * Por categoria: categoria → nomeados → gráfico a brincar (com o som da gala; aos 6,3 s
+ * Por categoria: categoria → nomeados → gráfico a brincar (com o som da gala; aos 7 s
  * o gráfico para nos valores reais e aparece a coroa) → nome do vencedor em grande.
  * Só o gráfico tem som; os outros ecrãs são em silêncio.
  * Prémios secretos (sempre no fim): categoria → nome do vencedor em grande.
@@ -496,7 +498,7 @@ function NomineesSlide({ show }: { show: CategoryShow }) {
  * O gráfico "a brincar": as barras ficam sempre no mesmo lugar (ordem
  * alfabética) e só sobem e descem para enganar o público — cada nomeado parece
  * ir ganhar a certa altura, cada vez mais depressa. Pouco antes do fim ficam
- * todas iguais… e, aos 6,3 s (o ponto alto do som), param nos valores reais e o vencedor brilha com a coroa.
+ * todas iguais… e, aos 7 s (o ponto alto do som), param nos valores reais e o vencedor brilha com a coroa.
  */
 function RaceSlide({ show, sound }: { show: CategoryShow; sound: boolean }) {
   const nominees = show.nominees
@@ -529,8 +531,9 @@ function RaceSlide({ show, sound }: { show: CategoryShow; sound: boolean }) {
       // silêncio: todas iguais, a meio
       at(calmAt, () => setHeights(nominees.map(() => 50)))
     }
-    // o som da gala começa com o gráfico: sobe até aos 6,3 s, quando as barras param
-    if (sound) playChartSound()
+    // o som da gala começa 1 s depois do gráfico; as barras param e aparece a coroa aos 7 s
+    // (se o apresentador avançar antes disso, o som já não começa)
+    if (sound) at(SOUND_DELAY_MS, () => playChartSound())
     // valores reais e coroa no vencedor
     at(TEASE_MS, () => {
       setHeights(finalHeights)

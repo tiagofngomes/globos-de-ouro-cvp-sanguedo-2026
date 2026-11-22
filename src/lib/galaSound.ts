@@ -1,6 +1,6 @@
 /**
  * Som da gala: um único ficheiro (public/sons/grafico.mp3), tocado só no ecrã do
- * gráfico. O som sobe até aos 6,3 s, o momento em que as barras param e aparece a coroa.
+ * gráfico. O som sobe até aos 7 s, o momento em que as barras param e aparece a coroa.
  *
  * O ficheiro é descarregado e preparado logo ao abrir a gala, para arrancar sem atraso.
  * Os navegadores só deixam tocar som depois de uma interação (tecla, clique ou comando).
@@ -79,7 +79,7 @@ export function stopAllSounds() {
 /**
  * Toca o som do gráfico a partir de agora. Se o ficheiro ainda estiver a carregar,
  * começa assim que estiver pronto, já no ponto certo, para continuar acertado com as
- * barras (a coroa aos 6,3 s).
+ * barras (a coroa aos 7 s).
  */
 export function playChartSound() {
   try {
