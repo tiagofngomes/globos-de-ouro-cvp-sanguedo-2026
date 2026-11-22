@@ -1,4 +1,4 @@
-import { AnimatePresence, motion, useIsPresent } from 'framer-motion'
+import { motion } from 'framer-motion'
 import { ChevronLeft, ChevronRight, Crown, Maximize, Minimize, Volume2, VolumeX, X } from 'lucide-react'
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
@@ -33,11 +33,11 @@ type Slide =
   | { kind: 'finale' }
 
 /** Duração do gráfico "a brincar" antes de parar nos valores reais. */
-const TEASE_MS = 7500
+const TEASE_MS = 7300
 
 /**
  * MODO GALA — apresentação em ecrã completo para a cerimónia final.
- * Por categoria: categoria → nomeados → gráfico a brincar (com o som da gala; aos 7,5 s
+ * Por categoria: categoria → nomeados → gráfico a brincar (com o som da gala; aos 7,3 s
  * o gráfico para nos valores reais e aparece a coroa) → nome do vencedor em grande.
  * Só o gráfico tem som; os outros ecrãs são em silêncio.
  * Prémios secretos (sempre no fim): categoria → nome do vencedor em grande.
@@ -283,30 +283,27 @@ export function GalaPage() {
         </div>
       )}
 
-      {/* Sem fila de espera entre ecrãs: o ecrã que sai desvanece e o novo entra logo a seguir
-          (atraso de 0,3 s). Com mode="wait", vários toques rápidos no comando encravavam a
-          animação e o ecrã ficava preso num ecrã antigo. */}
-      <AnimatePresence initial={false}>
-        <motion.div
-          key={`${i}-${visit}`}
-          data-slide={i}
-          className="absolute inset-0 flex items-center justify-center px-[4vw] pb-[9vh] pt-[8vh]"
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1, transition: { duration: 0.6, delay: 0.3 } }}
-          exit={{ opacity: 0, transition: { duration: 0.3 } }}
-        >
-          {slide?.kind === 'intro' && <IntroSlide />}
-          {slide?.kind === 'category' && show && (
-            // a contagem "Categoria X de Y" só conta as votadas: os prémios secretos são surpresa
-            <CategorySlide show={show} index={slide.ci} total={shows.filter((s) => !s.secret).length} />
-          )}
-          {slide?.kind === 'nominees' && show && <NomineesSlide show={show} />}
-          {slide?.kind === 'race' && show && <RaceSlide show={show} sound={sound} />}
-          {slide?.kind === 'winner' && show && <WinnerSlide show={show} />}
-          {slide?.kind === 'finale' && <FinaleSlide shows={shows} />}
-          {shows.length === 0 && <p className="text-gold-100/60">Sem dados para apresentar.</p>}
-        </motion.div>
-      </AnimatePresence>
+      {/* Um só ecrã de cada vez: ao mudar, o anterior sai logo e o novo aparece a desvanecer.
+          Sem animação de saída: com toques rápidos no comando (ou num computador lento) as
+          saídas encravavam e os ecrãs ficavam presos ou empilhados. */}
+      <motion.div
+        key={`${i}-${visit}`}
+        data-slide={i}
+        className="absolute inset-0 flex items-center justify-center px-[4vw] pb-[9vh] pt-[8vh]"
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1, transition: { duration: 0.6 } }}
+      >
+        {slide?.kind === 'intro' && <IntroSlide />}
+        {slide?.kind === 'category' && show && (
+          // a contagem "Categoria X de Y" só conta as votadas: os prémios secretos são surpresa
+          <CategorySlide show={show} index={slide.ci} total={shows.filter((s) => !s.secret).length} />
+        )}
+        {slide?.kind === 'nominees' && show && <NomineesSlide show={show} />}
+        {slide?.kind === 'race' && show && <RaceSlide show={show} sound={sound} />}
+        {slide?.kind === 'winner' && show && <WinnerSlide show={show} />}
+        {slide?.kind === 'finale' && <FinaleSlide shows={shows} />}
+        {shows.length === 0 && <p className="text-gold-100/60">Sem dados para apresentar.</p>}
+      </motion.div>
 
       {/* controlos */}
       <motion.div
@@ -482,22 +479,14 @@ function NomineesSlide({ show }: { show: CategoryShow }) {
  * O gráfico "a brincar": as barras ficam sempre no mesmo lugar (ordem
  * alfabética) e só sobem e descem para enganar o público — cada nomeado parece
  * ir ganhar a certa altura, cada vez mais depressa. Pouco antes do fim ficam
- * todas iguais… e, aos 7,5 s (o ponto alto do som), param nos valores reais e o vencedor brilha com a coroa.
+ * todas iguais… e, aos 7,3 s (o ponto alto do som), param nos valores reais e o vencedor brilha com a coroa.
  */
 function RaceSlide({ show, sound }: { show: CategoryShow; sound: boolean }) {
   const nominees = show.nominees
   const maxVotes = Math.max(0, ...nominees.map((r) => r.votes))
   const [heights, setHeights] = useState<number[]>(() => nominees.map(() => 6))
   const [settled, setSettled] = useState(false)
-  // deixa de ser o ecrã atual assim que o apresentador avança (ainda a desvanecer)
-  const isPresent = useIsPresent()
   const timersRef = useRef<number[]>([])
-  useEffect(() => {
-    if (isPresent) return
-    // as barras já não mudam depois de avançar
-    timersRef.current.forEach((id) => window.clearTimeout(id))
-    timersRef.current = []
-  }, [isPresent])
 
   useEffect(() => {
     const timers = timersRef.current
@@ -523,7 +512,7 @@ function RaceSlide({ show, sound }: { show: CategoryShow; sound: boolean }) {
       // silêncio: todas iguais, a meio
       at(calmAt, () => setHeights(nominees.map(() => 50)))
     }
-    // o som da gala começa com o gráfico: sobe até aos 7,5 s, quando as barras param
+    // o som da gala começa com o gráfico: sobe até aos 7,3 s, quando as barras param
     if (sound) playChartSound()
     // valores reais e coroa no vencedor
     at(TEASE_MS, () => {
