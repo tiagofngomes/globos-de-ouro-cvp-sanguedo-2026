@@ -82,13 +82,18 @@ create table if not exists public.event_settings (
   phase2_closes_at       timestamptz,               -- definida posteriormente pelo administrador
   gala_at                timestamptz,               -- data da gala (opcional, para contagem decrescente)
   voting_paused          boolean not null default false,
-  finalists_per_category integer not null default 5 check (finalists_per_category between 1 and 20),
+  finalists_per_category integer not null default 5 check (finalists_per_category between 2 and 8),
   finalists_confirmed    boolean not null default false,
   finalists_confirmed_at timestamptz,
   results_published      boolean not null default false,
   updated_at             timestamptz not null default now()
 );
 insert into public.event_settings (id) values (true) on conflict (id) do nothing;
+
+-- Finalistas por categoria (recomendação para a pré-seleção): entre 2 e 8.
+alter table public.event_settings drop constraint if exists event_settings_finalists_per_category_check;
+alter table public.event_settings add constraint event_settings_finalists_per_category_check
+  check (finalists_per_category between 2 and 8);
 
 -- As fases nunca se sobrepõem, venha a alteração de onde vier:
 -- abertura da 1ª < fecho da 1ª <= abertura da 2ª < fecho da 2ª (se definido).
@@ -337,43 +342,10 @@ as $$
   order by r.category_id, r.rn
 $$;
 
--- Apuramento automático: só confirma se não existirem empates.
--- Devolve a lista de categorias com empate (vazia se tudo correu bem).
-create or replace function public.try_auto_finalize()
-returns jsonb
-language plpgsql
-security definer
-set search_path = public
-as $$
-declare
-  s public.event_settings;
-  tied jsonb;
-begin
-  select * into s from public.event_settings where id for update;
-  if s.finalists_confirmed then
-    return jsonb_build_object('confirmed', true, 'ties', '[]'::jsonb);
-  end if;
-  if now() <= s.phase1_closes_at then
-    return jsonb_build_object('confirmed', false, 'ties', '[]'::jsonb, 'reason', 'phase1_open');
-  end if;
-
-  select coalesce(jsonb_agg(distinct p.category_id), '[]'::jsonb) into tied
-  from public.finalist_proposal() p where p.status = 'tied';
-
-  if jsonb_array_length(tied) > 0 then
-    return jsonb_build_object('confirmed', false, 'ties', tied);
-  end if;
-
-  delete from public.finalists where true; -- "where" obrigatório no Supabase (safeupdate)
-  insert into public.finalists (category_id, candidate_id, phase1_votes)
-  select p.category_id, p.candidate_id, p.votes from public.finalist_proposal() p where p.status = 'qualified';
-
-  update public.event_settings
-     set finalists_confirmed = true, finalists_confirmed_at = now(), updated_at = now()
-   where id;
-  return jsonb_build_object('confirmed', true, 'ties', '[]'::jsonb);
-end
-$$;
+-- Os finalistas nunca são aprovados sozinhos: a 2ª fase só abre depois de os
+-- administradores aprovarem a seleção (admin_set_finalists).
+drop function if exists public.admin_auto_finalize();
+drop function if exists public.try_auto_finalize();
 
 -- -----------------------------------------------------------------------------
 -- RPC públicas
@@ -391,13 +363,6 @@ declare
 begin
   select * into s from public.event_settings where id;
   ph := public.compute_phase(s);
-
-  -- Abertura automática da final às 00h00 de 11/12 (se não houver empates).
-  if ph = 'counting' and not s.finalists_confirmed and now() >= s.phase2_opens_at then
-    perform public.try_auto_finalize();
-    select * into s from public.event_settings where id;
-    ph := public.compute_phase(s);
-  end if;
 
   return jsonb_build_object(
     'server_now',        now(),
@@ -763,19 +728,8 @@ begin
 end
 $$;
 
-create or replace function public.admin_auto_finalize()
-returns jsonb
-language plpgsql
-security definer
-set search_path = public
-as $$
-begin
-  perform public.assert_admin();
-  return public.try_auto_finalize();
-end
-$$;
-
--- Definição manual dos finalistas (resolução de empates) e confirmação.
+-- Aprovação dos finalistas pelos administradores (a única forma de abrir a 2ª fase).
+-- Cada categoria ativa tem de ter entre 2 e 8 finalistas.
 -- p_selection: { "<category_id>": ["<candidate_id>", ...], ... }
 create or replace function public.admin_set_finalists(p_selection jsonb)
 returns jsonb
@@ -796,9 +750,11 @@ begin
   end if;
 
   select count(*) into v_missing from public.categories c
-   where c.active and jsonb_array_length(coalesce(p_selection -> c.id::text, '[]'::jsonb)) = 0;
+   where c.active
+     and (select count(distinct x.value) from jsonb_array_elements_text(coalesce(p_selection -> c.id::text, '[]'::jsonb)) as x(value))
+         not between 2 and 8;
   if v_missing > 0 then
-    return jsonb_build_object('ok', false, 'error', 'Todas as categorias ativas precisam de pelo menos um finalista.');
+    return jsonb_build_object('ok', false, 'error', 'Cada categoria tem de ter entre 2 e 8 finalistas.');
   end if;
 
   delete from public.finalists where true; -- "where" obrigatório no Supabase (safeupdate)
@@ -937,7 +893,6 @@ grant execute on function public.get_public_results()                 to anon, a
 grant execute on function public.admin_overview()                     to authenticated;
 grant execute on function public.admin_results(integer)               to authenticated;
 grant execute on function public.admin_finalist_proposal()            to authenticated;
-grant execute on function public.admin_auto_finalize()                to authenticated;
 grant execute on function public.admin_set_finalists(jsonb)           to authenticated;
 grant execute on function public.admin_reset_finalists()              to authenticated;
 grant execute on function public.admin_import_members(text[])         to authenticated;
@@ -948,7 +903,6 @@ grant execute on function public.admin_list_members()                 to authent
 
 -- Funções internas: nunca expostas diretamente.
 revoke execute on function public.finalist_proposal()  from public, anon, authenticated;
-revoke execute on function public.try_auto_finalize()  from public, anon, authenticated;
 revoke execute on function public.results_visible(integer) from public, anon, authenticated;
 
 -- -----------------------------------------------------------------------------

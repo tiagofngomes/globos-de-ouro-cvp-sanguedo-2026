@@ -73,14 +73,18 @@ export function GalaPage() {
           setShows([])
           return
         }
-        // ensaio antes da 2ª fase: usa os N mais votados da 1ª fase
+        // ensaio antes de haver resultados da 2ª fase: usa os finalistas aprovados (com os
+        // votos da 1ª fase); se ainda não foram aprovados, os N mais votados da 1ª fase
         isPreview = true
         const r1 = await api.admin.results(1)
+        const approved = r1.filter((r) => r.is_finalist)
         rows = active.flatMap((c) =>
-          r1
-            .filter((r) => r.category_id === c.id)
-            .sort((a, b) => b.votes - a.votes)
-            .slice(0, overview.settings.finalists_per_category),
+          approved.length > 0
+            ? approved.filter((r) => r.category_id === c.id)
+            : r1
+                .filter((r) => r.category_id === c.id)
+                .sort((a, b) => b.votes - a.votes)
+                .slice(0, overview.settings.finalists_per_category),
         )
       }
       setPreview(isPreview)

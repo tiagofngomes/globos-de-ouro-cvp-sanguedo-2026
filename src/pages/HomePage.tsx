@@ -57,7 +57,7 @@ function Hero({ state, offset, onPhaseChange }: { state: PublicState; offset: nu
           label: new Date(s.phase2_opens_at).getTime() > Date.now() + offset ? 'A 2ª fase abre em' : 'A apurar os finalistas',
           target: new Date(s.phase2_opens_at).getTime() > Date.now() + offset ? s.phase2_opens_at : null,
           cta: null,
-          note: 'Os cinco mais votados de cada categoria seguem para a 2ª fase.',
+          note: 'Os finalistas de cada categoria seguem para a 2ª fase.',
         }
       case 'phase2':
         return {

@@ -12,7 +12,11 @@ type DateKey = 'phase1_opens_at' | 'phase1_closes_at' | 'phase2_opens_at' | 'pha
 const DATE_FIELDS: Array<{ key: DateKey; label: string; help: string; optional?: boolean; endOfMinute?: boolean; dateOnly?: boolean }> = [
   { key: 'phase1_opens_at', label: 'Abertura da 1ª fase', help: 'Início da votação.' },
   { key: 'phase1_closes_at', label: 'Fecho da 1ª fase', help: 'Inclui o minuto indicado (23:59 fecha às 23:59:59).', endOfMinute: true },
-  { key: 'phase2_opens_at', label: 'Abertura da 2ª fase', help: 'Os finalistas são apurados automaticamente nesta hora, se não houver empates.' },
+  {
+    key: 'phase2_opens_at',
+    label: 'Abertura da 2ª fase',
+    help: 'Só abre se os finalistas já estiverem aprovados (menu Finalistas). Se forem aprovados depois desta hora, abre logo nesse momento.',
+  },
   {
     key: 'phase2_closes_at',
     label: 'Fecho da 2ª fase',
@@ -36,7 +40,6 @@ export function SettingsPage() {
   const ask = useConfirm()
   const [form, setForm] = useState<Record<DateKey, string> | null>(null)
   const [invalid, setInvalid] = useState<Partial<Record<DateKey, boolean>>>({})
-  const [perCat, setPerCat] = useState(5)
   const [saving, setSaving] = useState(false)
   const [resetText, setResetText] = useState('')
 
@@ -50,7 +53,6 @@ export function SettingsPage() {
       phase2_closes_at: isoToLisbonInput(s.phase2_closes_at),
       gala_at: isoToLisbonInput(s.gala_at),
     })
-    setPerCat(s.finalists_per_category)
   }, [overview, form])
 
   if (!overview || !form) return <FullPageLoader />
@@ -78,7 +80,7 @@ export function SettingsPage() {
   const saveDates = async () => {
     if (DATE_FIELDS.some((f) => invalid[f.key])) return toast('Corrija as datas assinaladas a vermelho.', 'error')
     if (Object.keys(orderErrors).length) return toast('As datas estão fora de ordem. Veja os avisos a vermelho.', 'error')
-    const patch: Partial<EventSettings> = { finalists_per_category: perCat }
+    const patch: Partial<EventSettings> = {}
     for (const f of DATE_FIELDS) {
       const value = iso(f.key)
       if (!value && !f.optional) return toast(`Preencha: ${f.label}.`, 'error')
@@ -172,11 +174,6 @@ export function SettingsPage() {
                 }}
               />
             ))}
-            <div>
-              <label className="label-gala">Finalistas por categoria</label>
-              <input type="number" min={1} max={20} value={perCat} onChange={(e) => setPerCat(Number(e.target.value))} className="input-gala py-3" />
-              <p className="mt-1.5 text-[11px] text-gold-100/40">Por omissão, os 5 mais votados.</p>
-            </div>
           </div>
           <button onClick={saveDates} disabled={saving} className="btn-gold mt-6">
             {saving ? <Spinner className="h-4 w-4" /> : <Save className="h-4 w-4" />} Guardar calendário

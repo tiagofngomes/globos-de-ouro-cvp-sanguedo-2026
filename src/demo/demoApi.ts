@@ -165,7 +165,7 @@ export function setDemoPhase(phase: Phase) {
     for (const cat of activeCategories()) {
       state.finalists[cat.id] = proposal
         .filter((p) => p.category_id === cat.id && p.status !== 'out')
-        .slice(0, n)
+        .slice(0, Math.min(8, Math.max(2, n)))
         .map((p) => p.candidate_id)
     }
     state.settings.finalists_confirmed = true
@@ -396,26 +396,12 @@ export function createDemoApi(): VotingApi {
         return resultsVisible(1) ? computeProposal() : []
       },
 
-      async autoFinalize() {
-        await delay(300)
-        const ties = tiesList()
-        if (ties.length) return { confirmed: false, ties }
-        const proposal = computeProposal()
-        state.finalists = {}
-        for (const cat of activeCategories()) {
-          state.finalists[cat.id] = proposal.filter((p) => p.category_id === cat.id && p.status === 'qualified').map((p) => p.candidate_id)
-        }
-        state.settings.finalists_confirmed = true
-        state.settings.finalists_confirmed_at = new Date().toISOString()
-        save()
-        return { confirmed: true, ties: [] }
-      },
-
       async setFinalists(selection) {
         await delay(300)
         if (hasPhase2Votes()) return { ok: false, error: 'A 2ª fase já tem votos: não é possível alterar os finalistas.' }
-        if (activeCategories().some((c) => !(selection[c.id]?.length > 0))) {
-          return { ok: false, error: 'Todas as categorias ativas precisam de pelo menos um finalista.' }
+        if (state.phase === 'phase1' || state.phase === 'pre_voting') return { ok: false, error: 'A 1ª fase ainda está aberta.' }
+        if (activeCategories().some((c) => new Set(selection[c.id] ?? []).size < 2 || new Set(selection[c.id] ?? []).size > 8)) {
+          return { ok: false, error: 'Cada categoria tem de ter entre 2 e 8 finalistas.' }
         }
         state.finalists = selection
         state.settings.finalists_confirmed = true
@@ -435,6 +421,9 @@ export function createDemoApi(): VotingApi {
 
       async updateSettings(patch) {
         await delay(250)
+        // como no servidor: recomendação de finalistas entre 2 e 8
+        if (patch.finalists_per_category !== undefined && (patch.finalists_per_category < 2 || patch.finalists_per_category > 8))
+          return { ok: false, error: 'O número de finalistas tem de estar entre 2 e 8.' }
         // como no servidor: as fases nunca se sobrepõem
         const next = { ...state.settings, ...patch }
         const ms = (v: string | null) => (v ? new Date(v).getTime() : null)

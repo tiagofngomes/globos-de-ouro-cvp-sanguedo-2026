@@ -1,4 +1,4 @@
-import { AlertTriangle, CheckCircle2, RotateCcw, Sparkles, Star } from 'lucide-react'
+import { AlertTriangle, CheckCircle2, PartyPopper, RotateCcw, Star } from 'lucide-react'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useApi } from '../../api/ApiContext'
 import type { Category, ProposalRow, ResultRow } from '../../api/types'
@@ -9,10 +9,14 @@ import { FullPageLoader, Spinner, useConfirm, useToast } from '../../components/
 import { cn } from '../../lib/cn'
 import { formatDateTime, plural } from '../../lib/format'
 
+/** Limites de finalistas por categoria (também garantidos pelo servidor). */
+export const MIN_FINALISTS = 2
+export const MAX_FINALISTS = 8
+
 /**
- * Apuramento dos finalistas. O sistema propõe automaticamente os N mais
- * votados; se houver empate na última vaga, o administrador escolhe quem
- * passa (ou inclui todos os empatados) antes de abrir a final.
+ * Apuramento dos finalistas. Nada avança sozinho: o sistema pré-seleciona os
+ * mais votados (pelo número recomendado) como sugestão, e os administradores
+ * revêem, resolvem empates e aprovam. A 2ª fase só abre depois da aprovação.
  */
 export function FinalistsPage() {
   const { api } = useApi()
@@ -24,15 +28,17 @@ export function FinalistsPage() {
   const [current, setCurrent] = useState<ResultRow[]>([])
   const [selection, setSelection] = useState<Record<string, string[]>>({})
   const [busy, setBusy] = useState(false)
+  const [savingN, setSavingN] = useState(false)
 
   const confirmed = overview?.settings.finalists_confirmed ?? false
   const n = overview?.settings.finalists_per_category ?? 5
-  const phase1Open = overview ? ['pre_voting', 'phase1', 'paused'].includes(overview.phase) && !confirmed : true
+  const phase1Open = overview ? !overview.results_visible.phase1 && !confirmed : true
 
   const load = useCallback(async () => {
     const [cats, prop] = await Promise.all([api.admin.listCategories(), api.admin.finalistProposal()])
     setCategories(cats.filter((c) => c.active !== false))
     setProposal(prop)
+    // recomendação: os mais votados acima do corte já vêm marcados; os empatados ficam para escolher
     const sel: Record<string, string[]> = {}
     for (const p of prop) if (p.status === 'qualified') (sel[p.category_id] ??= []).push(p.candidate_id)
     setSelection(sel)
@@ -41,7 +47,7 @@ export function FinalistsPage() {
 
   useEffect(() => {
     load()
-  }, [load])
+  }, [load, n])
 
   const byCat = useMemo(() => {
     const m: Record<string, ProposalRow[]> = {}
@@ -49,41 +55,60 @@ export function FinalistsPage() {
     return m
   }, [proposal])
 
-  const toggle = (cat: string, cand: string) =>
-    setSelection((s) => {
-      const list = s[cat] ?? []
-      return { ...s, [cat]: list.includes(cand) ? list.filter((x) => x !== cand) : [...list, cand] }
-    })
+  const tiedCats = categories?.filter((c) => (byCat[c.id] ?? []).some((p) => p.status === 'tied')) ?? []
 
-  const auto = async () => {
-    setBusy(true)
-    let r: Awaited<ReturnType<typeof api.admin.autoFinalize>>
-    try {
-      r = await api.admin.autoFinalize()
-    } catch (e) {
-      toast((e as Error).message || 'Não foi possível contactar o servidor.', 'error')
+  const toggle = (cat: string, cand: string) => {
+    const list = selection[cat] ?? []
+    if (!list.includes(cand) && list.length >= MAX_FINALISTS) {
+      toast(
+        `Máximo de ${MAX_FINALISTS} finalistas por categoria, para a apresentação na gala ficar legível. Desmarque alguém para escolher outra pessoa.`,
+        'error',
+      )
       return
-    } finally {
-      setBusy(false)
     }
-    if (r.confirmed) toast('Finalistas apurados e confirmados automaticamente.')
-    else if (r.ties.length) toast('Existem empates por resolver. Escolha manualmente nas categorias assinaladas.', 'error')
-    else if (r.reason === 'phase1_open') toast('A 1ª fase ainda está aberta.', 'error')
-    await reload()
-    await load()
+    setSelection((s) => ({ ...s, [cat]: list.includes(cand) ? list.filter((x) => x !== cand) : [...list, cand] }))
   }
 
-  const confirm = async () => {
-    if (!categories) return
-    const bad = categories.find((c) => !(selection[c.id]?.length > 0))
-    if (bad) return toast(`Selecione pelo menos um finalista em “${bad.name}”.`, 'error')
-    const odd = categories.filter((c) => (selection[c.id]?.length ?? 0) !== n)
+  const changeN = async (value: number) => {
+    const next = Math.min(MAX_FINALISTS, Math.max(MIN_FINALISTS, value))
+    if (next === n) return
+    setSavingN(true)
+    const r = await api.admin.updateSettings({ finalists_per_category: next })
+    setSavingN(false)
+    if (!r.ok) toast(r.error ?? 'Erro', 'error')
+    await reload()
+  }
+
+  const approve = async () => {
+    if (!categories || !overview) return
+    const tooFew = categories.find((c) => (selection[c.id]?.length ?? 0) < MIN_FINALISTS)
+    if (tooFew) return toast(`Selecione pelo menos ${MIN_FINALISTS} finalistas em “${tooFew.name}”.`, 'error')
+    const total = categories.reduce((a, c) => a + (selection[c.id]?.length ?? 0), 0)
+    const opensAt = overview.settings.phase2_opens_at
+    const opensNow = new Date(opensAt).getTime() <= new Date(overview.server_now).getTime()
     if (
-      odd.length &&
       !(await ask({
-        title: 'Confirmar finalistas',
-        message: `${odd.length === 1 ? 'Uma categoria não tem' : `${odd.length} categorias não têm`} exatamente ${n} finalistas. Confirmar mesmo assim?`,
-        confirmText: 'Confirmar mesmo assim',
+        title: 'Aprovar finalistas?',
+        message: (
+          <div className="space-y-3">
+            <ul className="space-y-1">
+              {categories.map((c) => {
+                const k = selection[c.id]?.length ?? 0
+                return (
+                  <li key={c.id} className="flex justify-between gap-3">
+                    <span className="truncate">{c.name}</span>
+                    <span className={cn('shrink-0 tabular-nums', k === n ? 'text-gold-200' : 'text-amber-300')}>{plural(k, 'finalista', 'finalistas')}</span>
+                  </li>
+                )
+              })}
+            </ul>
+            <p>
+              Total: {plural(total, 'finalista', 'finalistas')}.{' '}
+              <strong className="text-gold-100">{opensNow ? 'A 2ª fase abre logo após a aprovação.' : `A 2ª fase abre a ${formatDateTime(opensAt)}.`}</strong>
+            </p>
+          </div>
+        ),
+        confirmText: 'Aprovar finalistas',
       }))
     )
       return
@@ -96,8 +121,8 @@ export function FinalistsPage() {
     } finally {
       setBusy(false)
     }
-    if (r.ok) toast('Finalistas confirmados! A 2ª fase abre na data definida.')
-    else toast(r.error ?? 'Erro ao confirmar.', 'error')
+    if (r.ok) toast(opensNow ? 'Finalistas aprovados! A 2ª fase está aberta.' : 'Finalistas aprovados! A 2ª fase abre na data definida.')
+    else toast(r.error ?? 'Erro ao aprovar.', 'error')
     await reload()
   }
 
@@ -105,7 +130,7 @@ export function FinalistsPage() {
     if (
       !(await ask({
         title: 'Repor apuramento',
-        message: 'Os finalistas atuais serão removidos e terão de ser apurados de novo.',
+        message: 'Os finalistas aprovados são removidos e a 2ª fase volta a ficar à espera de uma nova aprovação.',
         confirmText: 'Repor',
         danger: true,
       }))
@@ -123,7 +148,7 @@ export function FinalistsPage() {
       <div>
         <AdminPageTitle
           title="Finalistas"
-          subtitle={`Confirmados ${overview.settings.finalists_confirmed_at ? 'a ' + formatDateTime(overview.settings.finalists_confirmed_at) : ''}`}
+          subtitle={`Aprovados ${overview.settings.finalists_confirmed_at ? 'a ' + formatDateTime(overview.settings.finalists_confirmed_at) : ''}`}
           actions={
             <button onClick={reset} className="btn-ghost btn-sm">
               <RotateCcw className="h-4 w-4" /> Repor apuramento
@@ -131,12 +156,12 @@ export function FinalistsPage() {
           }
         />
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
-          {categories.map((c) => (
-            <Panel key={c.id} title={<CatTitle c={c} />}>
-              <ul className="space-y-2">
-                {current
-                  .filter((r) => r.category_id === c.id)
-                  .map((r) => (
+          {categories.map((c) => {
+            const list = current.filter((r) => r.category_id === c.id)
+            return (
+              <Panel key={c.id} title={<CatTitle c={c} />} actions={<span className="text-xs tabular-nums text-gold-300">{list.length}</span>}>
+                <ul className="space-y-2">
+                  {list.map((r) => (
                     <li
                       key={r.candidate_id}
                       className="flex items-center gap-2 rounded-xl border border-gold-400/20 bg-gold-400/5 px-3 py-2 text-sm text-gold-50"
@@ -144,9 +169,10 @@ export function FinalistsPage() {
                       <Star className="h-3.5 w-3.5 fill-gold-400 text-gold-400" /> {r.candidate_name}
                     </li>
                   ))}
-              </ul>
-            </Panel>
-          ))}
+                </ul>
+              </Panel>
+            )
+          })}
         </div>
       </div>
     )
@@ -156,26 +182,57 @@ export function FinalistsPage() {
     <div>
       <AdminPageTitle
         title="Apuramento dos finalistas"
-        subtitle={`Os ${n} mais votados de cada categoria passam à 2ª fase.`}
+        subtitle="Os mais votados vêm pré-selecionados como sugestão. Nada avança sem a vossa aprovação."
         actions={
-          <>
-            <button onClick={auto} disabled={busy || phase1Open} className="btn-ghost btn-sm">
-              <Sparkles className="h-4 w-4" /> Apurar automaticamente
-            </button>
-            <button onClick={confirm} disabled={busy || phase1Open} className="btn-gold btn-sm">
-              {busy ? <Spinner className="h-4 w-4" /> : <CheckCircle2 className="h-4 w-4" />} Confirmar seleção
-            </button>
-          </>
+          <button onClick={approve} disabled={busy || phase1Open} className="btn-gold btn-sm">
+            {busy ? <Spinner className="h-4 w-4" /> : <CheckCircle2 className="h-4 w-4" />} Aprovar finalistas
+          </button>
         }
       />
-      {phase1Open && (
+
+      {/* número recomendado (sugestão para a pré-seleção) */}
+      <Panel className="mb-4">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <div className="font-display text-gold-100">Finalistas por categoria (recomendação)</div>
+            <p className="mt-1 text-xs text-gold-100/55">
+              Quantos vêm pré-selecionados em cada categoria. Podem aprovar entre {MIN_FINALISTS} e {MAX_FINALISTS} em cada uma, à vossa escolha.
+            </p>
+          </div>
+          <div className="flex shrink-0 items-center gap-2">
+            <button onClick={() => changeN(n - 1)} disabled={savingN || n <= MIN_FINALISTS} className="btn-ghost h-10 w-10 p-0" aria-label="Menos">
+              −
+            </button>
+            <span className="w-10 text-center font-display text-2xl tabular-nums text-gold-50">{savingN ? <Spinner className="h-5 w-5" /> : n}</span>
+            <button onClick={() => changeN(n + 1)} disabled={savingN || n >= MAX_FINALISTS} className="btn-ghost h-10 w-10 p-0" aria-label="Mais">
+              +
+            </button>
+          </div>
+        </div>
+      </Panel>
+
+      {phase1Open ? (
         <>
           <ResultsHidden phase={1} closesAt={overview.settings.phase1_closes_at} />
           <p className="mt-4 text-center text-xs text-gold-100/50">
-            Depois do fecho, se não houver empates, os finalistas são apurados sozinhos e a 2ª fase abre na data marcada. Havendo empates, escolhem aqui quem
-            passa.
+            Depois do fecho, os mais votados aparecem aqui já pré-selecionados. A 2ª fase só abre depois de aprovarem os finalistas.
           </p>
         </>
+      ) : tiedCats.length > 0 ? (
+        <div className="mb-4 flex items-start gap-3 rounded-2xl border border-cvp-500/50 bg-cvp-500/15 p-4 text-sm text-red-50">
+          <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0 text-cvp-400" />
+          <span>
+            <strong>Empate na última vaga</strong> em {plural(tiedCats.length, 'categoria', 'categorias')}. Escolham quem passa nas categorias assinaladas a
+            vermelho e depois aprovem os finalistas.
+          </span>
+        </div>
+      ) : (
+        <div className="mb-4 flex items-start gap-3 rounded-2xl border border-gold-400/40 bg-gold-400/10 p-4 text-sm text-gold-50">
+          <PartyPopper className="mt-0.5 h-5 w-5 shrink-0 text-gold-300" />
+          <span>
+            <strong>Apuramento pronto!</strong> Todas as categorias têm os {n} mais votados, sem empates. Revejam e aprovem os finalistas.
+          </span>
+        </div>
       )}
 
       <div className={cn('grid grid-cols-1 gap-4 xl:grid-cols-2', phase1Open && 'hidden')}>
@@ -183,13 +240,17 @@ export function FinalistsPage() {
           const list = byCat[c.id] ?? []
           const hasTie = list.some((p) => p.status === 'tied')
           const chosen = selection[c.id] ?? []
+          const ok = chosen.length >= MIN_FINALISTS && chosen.length <= MAX_FINALISTS
           return (
             <Panel
               key={c.id}
               title={<CatTitle c={c} />}
               className={cn(hasTie && 'ring-1 ring-cvp-500/60')}
               actions={
-                <span className={cn('text-xs tabular-nums', chosen.length === n ? 'text-gold-300' : 'text-cvp-400')}>
+                <span
+                  className={cn('text-xs tabular-nums', !ok ? 'text-cvp-400' : chosen.length === n ? 'text-gold-300' : 'text-amber-300')}
+                  title={`Recomendação: ${n}. Permitido: de ${MIN_FINALISTS} a ${MAX_FINALISTS}.`}
+                >
                   {chosen.length}/{n}
                 </span>
               }
@@ -197,7 +258,7 @@ export function FinalistsPage() {
               {hasTie && (
                 <p className="mb-3 flex items-start gap-2 rounded-xl bg-cvp-500/15 p-3 text-xs text-red-100">
                   <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-cvp-400" />
-                  Empate na última vaga. Selecione quem passa à 2ª fase (pode incluir todos os empatados).
+                  Empate na última vaga. Escolha quem passa à 2ª fase (máximo {MAX_FINALISTS} por categoria).
                 </p>
               )}
               {list.length === 0 && <p className="text-sm text-gold-100/40">Sem votos nesta categoria.</p>}

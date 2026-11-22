@@ -302,8 +302,33 @@ ok(
 )
 const ovTies = await val(`select public.admin_overview()`)
 ok(ovTies.ties.length === 2 && ovTies.ties.includes(c0) && ovTies.ties.includes(c1), 'as 2 categorias com empate são sinalizadas ao administrador')
-r = await val(`select public.admin_auto_finalize()`)
-ok(r.confirmed === false && r.ties.length === 2, 'apuramento automático recusa com empates')
+let autoGone = false
+try {
+  await db.query(`select public.admin_auto_finalize()`)
+} catch {
+  autoGone = true
+}
+ok(autoGone, 'já não existe apuramento automático')
+
+// entre 2 e 8 finalistas por categoria
+const selWith = (count) => {
+  const out = {}
+  for (const c of cats) out[c] = cands.slice(0, 5).map((x) => x.id)
+  out[c1] = cands.slice(0, count).map((x) => x.id)
+  return out
+}
+r = await val(`select public.admin_set_finalists($1::jsonb)`, [JSON.stringify(selWith(1))])
+ok(r.ok === false && /entre 2 e 8/.test(r.error), 'recusa 1 finalista numa categoria')
+r = await val(`select public.admin_set_finalists($1::jsonb)`, [JSON.stringify(selWith(9))])
+ok(r.ok === false && /entre 2 e 8/.test(r.error), 'recusa 9 finalistas numa categoria')
+ok((await val(`select count(*)::int from public.finalists`)) === 0, 'nada fica gravado quando a seleção é recusada')
+let badN = false
+try {
+  await db.exec(`update public.event_settings set finalists_per_category = 9 where id`)
+} catch {
+  badN = true
+}
+ok(badN, 'número recomendado de finalistas tem de estar entre 2 e 8')
 
 const sel = {}
 for (const c of cats) {
@@ -378,7 +403,7 @@ ok(r.ok === false, 'reset exige confirmação')
 r = await val(`select public.admin_reset_votes(2, 'APAGAR')`)
 ok(r.ok === true && (await val(`select public.admin_overview()`)).phase2_voters === 0, 'reset apaga votos da fase 2')
 
-// ---- abertura automática sem empates
+// ---- sem empates a 2ª fase continua à espera da aprovação
 r = await val(`select public.admin_reset_finalists()`)
 ok(r.ok === true, 'finalistas repostos (sem votos na final)')
 await asSuper()
@@ -388,12 +413,27 @@ for (let k = 1; k <= 4; k++)
   await db.query(`update public.vote_tallies set votes = $3 where phase = 1 and category_id = $1 and candidate_id = $2`, [c1, cands[k].id, 5 + k])
 await asAnon('10.7.7.7')
 st = await val(`select public.get_public_state()`)
-ok(st.phase === 'phase2', `sem empates, a final abre automaticamente (fase: ${st.phase})`)
-await asSuper()
-ok(
-  (await val(`select count(*)::int from public.finalists where category_id = $1`, [c0])) === 5,
-  '5 finalistas apurados automaticamente na categoria antes empatada',
-)
+ok(st.phase === 'counting', `sem empates e com a data passada, a 2ª fase NÃO abre sem aprovação (fase: ${st.phase})`)
+await asUser(adminId)
+const ovReady = await val(`select public.admin_overview()`)
+ok(ovReady.ties.length === 0 && ovReady.settings.finalists_confirmed === false, 'painel: sem empates, à espera da aprovação')
+const sel3 = {}
+for (const c of cats) {
+  const rows = (await db.query(`select * from public.admin_finalist_proposal()`)).rows.filter((p) => p.category_id === c && p.status === 'qualified')
+  sel3[c] = rows.map((p) => p.candidate_id).slice(0, c === c0 ? 3 : c === c1 ? 2 : 5)
+}
+sel3[cats[2]] = (await db.query(`select * from public.admin_finalist_proposal()`)).rows
+  .filter((p) => p.category_id === cats[2])
+  .slice(0, 7)
+  .map((p) => p.candidate_id)
+r = await val(`select public.admin_set_finalists($1::jsonb)`, [JSON.stringify(sel3)])
+ok(r.ok === true, 'aprovação com 3, 2, 7 e 5 finalistas em categorias diferentes')
+await asAnon('10.8.8.8')
+st = await val(`select public.get_public_state()`)
+ok(st.phase === 'phase2', `depois da aprovação, a 2ª fase abre logo (fase: ${st.phase})`)
+s = await val(`select public.start_voting_session('1020')`)
+const per = (c) => s.finalists.filter((f) => f.category_id === c).length
+ok(s.ok === true && per(c0) === 3 && per(c1) === 2 && per(cats[2]) === 7 && per(cats[3]) === 5, 'na 2ª fase aparecem exatamente os aprovados (3, 2, 7, 5)')
 
 console.log(failures ? `\n${failures} FALHA(S)` : '\nTodos os testes passaram.')
 process.exit(failures ? 1 : 0)

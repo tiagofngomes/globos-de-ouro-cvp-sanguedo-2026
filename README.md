@@ -10,34 +10,34 @@ Pensada primeiro para o telemóvel, com estética de gala (preto, dourado e verm
 
 ## ✨ Funcionalidades
 
-| Área | O que faz |
-| --- | --- |
-| Página inicial | Título animado, troféu, holofotes, contagem decrescente sincronizada com o servidor, calendário das fases e cartões das 6 categorias |
-| Votação | Entrada com o código de voto (“convite”), uma categoria de cada vez, pesquisa com autocomplete (ignora maiúsculas e acentos), lista completa A–Z, progresso, revisão e submissão única |
-| Grande Final | Só os finalistas de cada categoria, em cartões de toque |
-| Resultados | Página pública dos vencedores, só depois de o administrador os publicar (sem números de votos) |
-| Administração | Painel com participação em tempo real (os resultados de cada fase só ficam visíveis depois do fecho), gráficos de barras por categoria, apuramento e resolução de empates, eleitores (códigos de voto), candidatos, categorias, datas, suspensão/encerramento, publicação e exportação CSV |
-| Modo Gala | Apresentação final em ecrã completo: categoria → nomeados → gráfico “a brincar” com rufar de tambores (as barras sobem e descem para enganar o público) → prato e bombo: o gráfico para nos valores reais e destaca o vencedor → 3 segundos depois, nome do vencedor em grande (fanfarra de metais + confetis) → resumo final |
-| Demonstração | `#/demo` — 20 candidatos fictícios, 100 códigos de teste (1001 a 1100) e resultados simulados, tudo no navegador e totalmente separado da votação real |
+| Área           | O que faz                                                                                                                                                                                                                                                                                                                     |
+| -------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Página inicial | Título animado, troféu, holofotes, contagem decrescente sincronizada com o servidor, calendário das fases e cartões das 6 categorias                                                                                                                                                                                          |
+| Votação        | Entrada com o código de voto (“convite”), uma categoria de cada vez, pesquisa com autocomplete (ignora maiúsculas e acentos), lista completa A–Z, progresso, revisão e submissão única                                                                                                                                        |
+| Grande Final   | Só os finalistas de cada categoria, em cartões de toque                                                                                                                                                                                                                                                                       |
+| Resultados     | Página pública dos vencedores, só depois de o administrador os publicar (sem números de votos)                                                                                                                                                                                                                                |
+| Administração  | Painel com participação em tempo real (os resultados de cada fase só ficam visíveis depois do fecho), gráficos de barras por categoria, apuramento e resolução de empates, eleitores (códigos de voto), candidatos, categorias, datas, suspensão/encerramento, publicação e exportação CSV                                    |
+| Modo Gala      | Apresentação final em ecrã completo: categoria → nomeados → gráfico “a brincar” com rufar de tambores (as barras sobem e descem para enganar o público) → prato e bombo: o gráfico para nos valores reais e destaca o vencedor → 3 segundos depois, nome do vencedor em grande (fanfarra de metais + confetis) → resumo final |
+| Demonstração   | `#/demo` — 20 candidatos fictícios, 100 códigos de teste (1001 a 1100) e resultados simulados, tudo no navegador e totalmente separado da votação real                                                                                                                                                                        |
 
 ### Fases (calculadas sempre pelo servidor)
 
-| Fase | Quando |
-| --- | --- |
-| `pre_voting` | Antes da abertura das nomeações |
-| `phase1` — Nomeações | Até **10/12/2026 às 23h59** (hora de Portugal continental) |
-| `counting` — Apuramento | Depois do fecho, até a final abrir |
-| `phase2` — Grande Final | A partir de **11/12/2026 às 00h00**, se os finalistas estiverem apurados |
-| `awaiting_gala` | Final encerrada (data definida pelo administrador) |
-| `results` | Resultados publicados pelo administrador |
+| Fase                    | Quando                                                                    |
+| ----------------------- | ------------------------------------------------------------------------- |
+| `pre_voting`            | Antes da abertura das nomeações                                           |
+| `phase1` — Nomeações    | Até **10/12/2026 às 23h59** (hora de Portugal continental)                |
+| `counting` — Apuramento | Depois do fecho, até a final abrir                                        |
+| `phase2` — Grande Final | A partir de **11/12/2026 às 00h00**, se os finalistas estiverem aprovados |
+| `awaiting_gala`         | Final encerrada (data definida pelo administrador)                        |
+| `results`               | Resultados publicados pelo administrador                                  |
 
-Às 00h00 de 11/12, o primeiro acesso ao site apura automaticamente os **5 mais votados** de cada categoria. Se houver **empate na última vaga**, a final não abre: o painel sinaliza o empate e o administrador escolhe quem passa (ou inclui todos os empatados).
+Nada avança sozinho. Depois do fecho da 1ª fase, o menu **Finalistas** mostra os mais votados de cada categoria já pré-selecionados (pelo número recomendado, 5 por defeito) e o **Painel** avisa: a vermelho se houver **empate na última vaga**, a dourado se estiver tudo pronto. Os administradores revêem, resolvem empates e **aprovam** (entre 2 e 8 finalistas por categoria). A 2ª fase só abre depois da aprovação: à hora marcada ou, se a aprovação for depois, logo nesse momento.
 
 ---
 
 ## 🔒 Segurança e anonimato
 
-- **Os votos não estão ligados a quem votou.** A tabela `vote_participation` regista apenas *que* um código votou numa fase; a tabela `vote_tallies` guarda apenas **totais por candidato**. Não existe boletim individual nem carimbo temporal que permita correlacionar. Nem os administradores conseguem ver em quem alguém votou. O painel mostra que códigos já foram utilizados, por isso **os totais de uma fase só ficam visíveis depois de essa fase fechar** (o servidor não os devolve antes), para não ser possível deduzir votos comparando os totais com os códigos usados.
+- **Os votos não estão ligados a quem votou.** A tabela `vote_participation` regista apenas _que_ um código votou numa fase; a tabela `vote_tallies` guarda apenas **totais por candidato**. Não existe boletim individual nem carimbo temporal que permita correlacionar. Nem os administradores conseguem ver em quem alguém votou. O painel mostra que códigos já foram utilizados, por isso **os totais de uma fase só ficam visíveis depois de essa fase fechar** (o servidor não os devolve antes), para não ser possível deduzir votos comparando os totais com os códigos usados.
 - **Voto único por fase**, garantido pela chave primária `(member_id, phase)` dentro de uma transação. Pedidos simultâneos não conseguem votar duas vezes.
 - **Datas e regras validadas no servidor** (`now()` do Postgres). O relógio do telemóvel nunca decide nada.
 - **Limitação de tentativas:** 10 tentativas falhadas por IP, ou 5 por número, em 15 minutos, bloqueiam o acesso temporariamente.
@@ -52,20 +52,20 @@ Pensada primeiro para o telemóvel, com estética de gala (preto, dourado e verm
 
 ### 1. Criar o projeto Supabase
 
-1. Crie uma conta em <https://supabase.com> e um projeto novo (região: *West EU*).
+1. Crie uma conta em <https://supabase.com> e um projeto novo (região: _West EU_).
 2. Abra **SQL Editor** e execute, por esta ordem:
    1. `supabase/migrations/20261120000000_globos_de_ouro.sql` (estrutura, regras e categorias)
    2. `supabase/seed.sql` (opcional: 20 candidatos fictícios para testes)
 
 ### 2. Criar a conta de administrador
 
-1. Em **Authentication → Users → Add user**, crie o utilizador (email + palavra-passe) e marque *Auto Confirm*.
+1. Em **Authentication → Users → Add user**, crie o utilizador (email + palavra-passe) e marque _Auto Confirm_.
 2. No **SQL Editor**, dê-lhe permissões:
    ```sql
    insert into public.admins (user_id)
    select id from auth.users where email = 'o-seu-email@exemplo.pt';
    ```
-3. Recomendado: em **Authentication → Providers → Email**, desative *Allow new users to sign up*.
+3. Recomendado: em **Authentication → Providers → Email**, desative _Allow new users to sign up_.
 
 ### 3. Ligar o frontend
 
@@ -81,7 +81,7 @@ Os valores estão em **Project Settings → API** (URL e chave `anon public`).
 
 1. No GitHub: **Settings → Pages → Source: GitHub Actions**.
 2. **Settings → Secrets and variables → Actions → Variables**: crie `VITE_SUPABASE_URL` e `VITE_SUPABASE_ANON_KEY`.
-3. Faça *push* para `main`. O workflow `.github/workflows/deploy.yml` corre os testes, compila e publica.
+3. Faça _push_ para `main`. O workflow `.github/workflows/deploy.yml` corre os testes, compila e publica.
 
 O site fica em `https://<utilizador>.github.io/globos-de-ouro-cvp-sanguedo-2026/`.
 Sem as variáveis definidas, o site publicado funciona apenas em **modo demonstração**.

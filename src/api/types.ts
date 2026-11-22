@@ -169,7 +169,6 @@ export interface VotingApi {
     overview(): Promise<AdminOverview>
     results(phase: 1 | 2): Promise<ResultRow[]>
     finalistProposal(): Promise<ProposalRow[]>
-    autoFinalize(): Promise<{ confirmed: boolean; ties: string[]; reason?: string }>
     setFinalists(selection: Record<string, string[]>): Promise<OpResult>
     resetFinalists(): Promise<OpResult>
     updateSettings(patch: Partial<EventSettings>): Promise<OpResult>

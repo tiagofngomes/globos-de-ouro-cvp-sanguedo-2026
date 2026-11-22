@@ -132,7 +132,6 @@ export function createSupabaseApi(): VotingApi {
       overview: () => rpc<AdminOverview>('admin_overview'),
       results: (phase) => rpc<ResultRow[]>('admin_results', { p_phase: phase }),
       finalistProposal: () => rpc<ProposalRow[]>('admin_finalist_proposal'),
-      autoFinalize: () => rpc('admin_auto_finalize'),
       setFinalists: (selection) => rpcOp('admin_set_finalists', { p_selection: selection }),
       resetFinalists: () => rpcOp('admin_reset_finalists'),
       async updateSettings(patch: Partial<EventSettings>) {

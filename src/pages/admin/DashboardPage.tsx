@@ -1,4 +1,4 @@
-import { AlertTriangle, ArrowRight, CalendarClock, Eye, Tags, UserRound, Users, Vote } from 'lucide-react'
+import { AlertTriangle, ArrowRight, CalendarClock, Eye, PartyPopper, Tags, UserRound, Users, Vote } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useApi, usePath } from '../../api/ApiContext'
@@ -52,15 +52,29 @@ export function DashboardPage() {
     <div>
       <AdminPageTitle title="Painel" subtitle="Acompanhamento em tempo real da votação" actions={<PhaseBadge phase={o.phase} />} />
 
-      {o.ties.length > 0 && !s.finalists_confirmed && (
+      {/* depois do fecho da 1ª fase, nada avança sem aprovação: o painel avisa sempre */}
+      {o.results_visible.phase1 && !s.finalists_confirmed && o.ties.length > 0 && (
         <Link
           to={path('/admin/finalistas')}
           className="mb-5 flex items-center gap-3 rounded-2xl border border-cvp-500/50 bg-cvp-500/15 p-4 text-sm text-red-50 transition hover:bg-cvp-500/25"
         >
           <AlertTriangle className="h-5 w-5 shrink-0 text-cvp-400" />
           <span className="flex-1">
-            <strong>Empate na última vaga da 2ª fase</strong> em {o.ties.length} {o.ties.length === 1 ? 'categoria' : 'categorias'}. É necessário resolver antes
-            de abrir a 2ª fase.
+            <strong>Empate na última vaga</strong> em {o.ties.length} {o.ties.length === 1 ? 'categoria' : 'categorias'}. Resolvam o empate e aprovem os
+            finalistas. A 2ª fase só abre depois da aprovação.
+          </span>
+          <ArrowRight className="h-4 w-4" />
+        </Link>
+      )}
+      {o.results_visible.phase1 && !s.finalists_confirmed && o.ties.length === 0 && (
+        <Link
+          to={path('/admin/finalistas')}
+          className="mb-5 flex items-center gap-3 rounded-2xl border border-gold-400/40 bg-gold-400/10 p-4 text-sm text-gold-50 transition hover:bg-gold-400/20"
+        >
+          <PartyPopper className="h-5 w-5 shrink-0 text-gold-300" />
+          <span className="flex-1">
+            <strong>Apuramento pronto!</strong> Todas as categorias têm os {s.finalists_per_category} mais votados, sem empates. Revejam e aprovem os
+            finalistas. A 2ª fase só abre depois da aprovação.
           </span>
           <ArrowRight className="h-4 w-4" />
         </Link>

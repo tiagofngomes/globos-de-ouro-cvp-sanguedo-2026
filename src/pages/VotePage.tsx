@@ -233,7 +233,7 @@ function ThankYou({ phase, phase2OpensAt }: { phase: 'phase1' | 'phase2'; phase2
         <h1 className="text-gold-animated mt-3 font-display text-4xl sm:text-5xl">Obrigado!</h1>
         <p className="mt-4 text-sm leading-relaxed text-gold-50/70">
           {phase === 'phase1'
-            ? `Os seus votos da 1ª fase foram registados com sucesso. Os cinco mais votados de cada categoria seguem para a 2ª fase, que abre a ${formatDateTime(phase2OpensAt)}.`
+            ? `Os seus votos da 1ª fase foram registados com sucesso. Os finalistas de cada categoria seguem para a 2ª fase, que abre a ${formatDateTime(phase2OpensAt)}.`
             : 'O seu voto na 2ª fase foi registado com sucesso. Os vencedores serão revelados na noite da gala!'}
         </p>
         <p className="mt-3 text-xs text-gold-100/40">O seu voto é anónimo: não fica associado ao seu código.</p>
