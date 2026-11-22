@@ -134,7 +134,8 @@ export function GalaPage() {
             }
             return { category, nominees: [], winners: category.secret_winner ? [winner] : [], total: 0, secret: true }
           }
-          const list = rows.filter((r) => r.category_id === category.id)
+          // empate decidido pelos administradores: o escolhido aparece à frente no gráfico
+          const list = separateDecidedTie(rows.filter((r) => r.category_id === category.id))
           const max = Math.max(0, ...list.map((r) => r.votes))
           return {
             category,
@@ -335,6 +336,22 @@ export function GalaPage() {
       </motion.div>
     </div>
   )
+}
+
+/**
+ * Empate no 1º lugar decidido pelos administradores: no gráfico da gala o escolhido fica
+ * sempre à frente. Cada empatado que não foi escolhido passa 1 voto ao vencedor (por
+ * exemplo, 24 e 24 aparecem como 25 e 23). Barras, percentagens e votos continuam
+ * coerentes e o total não muda. É só na apresentação: os votos reais ficam intactos na
+ * base de dados, em Resultados e na exportação.
+ */
+function separateDecidedTie(list: ResultRow[]): ResultRow[] {
+  const max = Math.max(0, ...list.map((r) => r.votes))
+  const top = list.filter((r) => r.votes === max)
+  const winner = top.find((r) => r.is_winner)
+  if (max === 0 || top.length < 2 || !winner) return list
+  const others = top.filter((r) => r !== winner)
+  return list.map((r) => (r === winner ? { ...r, votes: r.votes + others.length } : others.includes(r) ? { ...r, votes: r.votes - 1 } : r))
 }
 
 function CtrlBtn({ children, onClick, label, active }: { children: React.ReactNode; onClick: () => void; label: string; active?: boolean }) {
