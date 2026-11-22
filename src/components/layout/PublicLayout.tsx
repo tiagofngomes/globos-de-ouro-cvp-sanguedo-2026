@@ -45,6 +45,8 @@ export function PublicLayout() {
             </span>
           </div>
           <p>Globos de Ouro CVP Sanguedo 2026 · O seu voto é secreto e anónimo.</p>
+          {/* só na página inicial */}
+          {onHome && <p className="mt-2">Website desenvolvido por Tiago Gomes</p>}
           <p className="mt-2">
             {isDemo ? (
               <Link to="/" className="underline decoration-gold-400/30 underline-offset-4 hover:text-gold-200">
