@@ -33,11 +33,11 @@ type Slide =
   | { kind: 'finale' }
 
 /** Duração do gráfico "a brincar" antes de parar nos valores reais. */
-const TEASE_MS = 7300
+const TEASE_MS = 6800
 
 /**
  * MODO GALA — apresentação em ecrã completo para a cerimónia final.
- * Por categoria: categoria → nomeados → gráfico a brincar (com o som da gala; aos 7,3 s
+ * Por categoria: categoria → nomeados → gráfico a brincar (com o som da gala; aos 6,8 s
  * o gráfico para nos valores reais e aparece a coroa) → nome do vencedor em grande.
  * Só o gráfico tem som; os outros ecrãs são em silêncio.
  * Prémios secretos (sempre no fim): categoria → nome do vencedor em grande.
@@ -496,7 +496,7 @@ function NomineesSlide({ show }: { show: CategoryShow }) {
  * O gráfico "a brincar": as barras ficam sempre no mesmo lugar (ordem
  * alfabética) e só sobem e descem para enganar o público — cada nomeado parece
  * ir ganhar a certa altura, cada vez mais depressa. Pouco antes do fim ficam
- * todas iguais… e, aos 7,3 s (o ponto alto do som), param nos valores reais e o vencedor brilha com a coroa.
+ * todas iguais… e, aos 6,8 s (o ponto alto do som), param nos valores reais e o vencedor brilha com a coroa.
  */
 function RaceSlide({ show, sound }: { show: CategoryShow; sound: boolean }) {
   const nominees = show.nominees
@@ -529,7 +529,7 @@ function RaceSlide({ show, sound }: { show: CategoryShow; sound: boolean }) {
       // silêncio: todas iguais, a meio
       at(calmAt, () => setHeights(nominees.map(() => 50)))
     }
-    // o som da gala começa com o gráfico: sobe até aos 7,3 s, quando as barras param
+    // o som da gala começa com o gráfico: sobe até aos 6,8 s, quando as barras param
     if (sound) playChartSound()
     // valores reais e coroa no vencedor
     at(TEASE_MS, () => {
