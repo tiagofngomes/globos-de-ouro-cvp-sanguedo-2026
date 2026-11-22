@@ -1,7 +1,7 @@
 import { AnimatePresence, motion } from 'framer-motion'
 import { ChevronLeft, ChevronRight, Crown, Maximize, Minimize, Volume2, VolumeX, X } from 'lucide-react'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import { useApi, usePath } from '../api/ApiContext'
 import type { Category, ResultRow } from '../api/types'
 import { GalaBackground } from '../components/layout/GalaBackground'
@@ -44,6 +44,10 @@ export function GalaPage() {
   const { api } = useApi()
   const path = usePath()
   const navigate = useNavigate()
+  // aberto pelo cartão "Gala" da página inicial: ao sair volta à página inicial (o menu do painel nunca aparece)
+  const [params] = useSearchParams()
+  const fromHome = params.get('de') === 'inicio'
+  const exitTo = fromHome ? path('/') : path('/admin')
   const [shows, setShows] = useState<CategoryShow[] | null>(null)
   const [preview, setPreview] = useState(false)
   const [blocked, setBlocked] = useState<string | null>(null)
@@ -162,7 +166,7 @@ export function GalaPage() {
         prev()
       } else if (e.key.toLowerCase() === 'f') toggleFs()
       else if (e.key.toLowerCase() === 's') setSound((s) => !s)
-      else if (e.key === 'Escape' && !document.fullscreenElement) navigate(path('/admin'))
+      else if (e.key === 'Escape' && !document.fullscreenElement) navigate(exitTo)
     }
     document.addEventListener('fullscreenchange', onFs)
     window.addEventListener('keydown', onKey)
@@ -170,7 +174,7 @@ export function GalaPage() {
       document.removeEventListener('fullscreenchange', onFs)
       window.removeEventListener('keydown', onKey)
     }
-  }, [next, prev, toggleFs, navigate, path])
+  }, [next, prev, toggleFs, navigate, exitTo])
 
   const poke = () => {
     setControls(true)
@@ -193,11 +197,13 @@ export function GalaPage() {
           <h1 className="mt-8 font-display text-[length:min(4vw,6vh)] text-gold-50">Ainda não há resultados para apresentar</h1>
           <p className="mt-4 text-gold-100/70">{blocked}</p>
           <div className="mt-8 flex flex-wrap justify-center gap-3">
-            <button onClick={() => navigate(path(`/admin/${blockedGoTo}`))} className="btn-gold">
-              {blockedGoTo === 'resultados' ? 'Ir para Resultados' : 'Ir para Datas e fases'}
-            </button>
-            <button onClick={() => navigate(path('/admin'))} className="btn-ghost">
-              Voltar ao painel
+            {!fromHome && (
+              <button onClick={() => navigate(path(`/admin/${blockedGoTo}`))} className="btn-gold">
+                {blockedGoTo === 'resultados' ? 'Ir para Resultados' : 'Ir para Datas e fases'}
+              </button>
+            )}
+            <button onClick={() => navigate(exitTo)} className={fromHome ? 'btn-gold' : 'btn-ghost'}>
+              {fromHome ? 'Voltar ao início' : 'Voltar ao painel'}
             </button>
           </div>
         </div>
@@ -270,7 +276,7 @@ export function GalaPage() {
           <CtrlBtn onClick={toggleFs} label="Ecrã completo (F)">
             {fs ? <Minimize className="h-4 w-4" /> : <Maximize className="h-4 w-4" />}
           </CtrlBtn>
-          <CtrlBtn onClick={() => navigate(path('/admin'))} label="Sair">
+          <CtrlBtn onClick={() => navigate(exitTo)} label="Sair">
             <X className="h-4 w-4" />
           </CtrlBtn>
         </div>

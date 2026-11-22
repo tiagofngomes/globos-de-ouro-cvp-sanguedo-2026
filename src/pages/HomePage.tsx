@@ -155,7 +155,7 @@ function Timeline({ state, offset }: { state: PublicState; offset: number }) {
       title: 'Gala',
       text: state.gala_at ? formatDate(state.gala_at) : 'Data a anunciar',
       status: galaStatus,
-      to: galaOpen ? path('/gala') : undefined,
+      to: galaOpen ? `${path('/gala')}?de=inicio` : undefined,
     },
   ]
   return (
