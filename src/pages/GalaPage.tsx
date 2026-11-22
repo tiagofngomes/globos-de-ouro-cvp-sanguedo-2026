@@ -136,8 +136,7 @@ export function GalaPage() {
             }
             return { category, nominees: [], winners: category.secret_winner ? [winner] : [], total: 0, secret: true }
           }
-          // empate decidido pelos administradores: o escolhido aparece à frente no gráfico
-          const list = separateDecidedTie(rows.filter((r) => r.category_id === category.id))
+          const list = rows.filter((r) => r.category_id === category.id)
           const max = Math.max(0, ...list.map((r) => r.votes))
           return {
             category,
@@ -156,10 +155,12 @@ export function GalaPage() {
     if (!shows) return []
     return [
       { kind: 'intro' },
+      // categorias votadas: categoria → nomeados → gráfico (que no fim se transforma no nome do vencedor);
+      // prémios secretos: categoria → vencedor
       ...shows.flatMap((s, ci) =>
         s.secret
           ? [{ kind: 'category', ci } as Slide, { kind: 'winner', ci } as Slide]
-          : [{ kind: 'category', ci } as Slide, { kind: 'nominees', ci } as Slide, { kind: 'race', ci } as Slide, { kind: 'winner', ci } as Slide],
+          : [{ kind: 'category', ci } as Slide, { kind: 'nominees', ci } as Slide, { kind: 'race', ci } as Slide],
       ),
       { kind: 'finale' },
     ]
@@ -340,22 +341,6 @@ export function GalaPage() {
   )
 }
 
-/**
- * Empate no 1º lugar decidido pelos administradores: no gráfico da gala o escolhido fica
- * sempre à frente. Cada empatado que não foi escolhido passa 1 voto ao vencedor (por
- * exemplo, 24 e 24 aparecem como 25 e 23). Barras, percentagens e votos continuam
- * coerentes e o total não muda. É só na apresentação: os votos reais ficam intactos na
- * base de dados, em Resultados e na exportação.
- */
-function separateDecidedTie(list: ResultRow[]): ResultRow[] {
-  const max = Math.max(0, ...list.map((r) => r.votes))
-  const top = list.filter((r) => r.votes === max)
-  const winner = top.find((r) => r.is_winner)
-  if (max === 0 || top.length < 2 || !winner) return list
-  const others = top.filter((r) => r !== winner)
-  return list.map((r) => (r === winner ? { ...r, votes: r.votes + others.length } : others.includes(r) ? { ...r, votes: r.votes - 1 } : r))
-}
-
 function CtrlBtn({ children, onClick, label, active }: { children: React.ReactNode; onClick: () => void; label: string; active?: boolean }) {
   return (
     <button
@@ -496,22 +481,22 @@ function NomineesSlide({ show }: { show: CategoryShow }) {
 
 /**
  * O gráfico "a brincar": as barras ficam sempre no mesmo lugar (ordem
- * alfabética) e só sobem e descem para enganar o público — cada nomeado parece
- * ir ganhar a certa altura, cada vez mais depressa. Pouco antes do fim ficam
- * todas iguais… e, aos 7 s (o ponto alto do som), param nos valores reais e o vencedor brilha com a coroa.
+ * alfabética) e só sobem e descem para enganar o público (cada nomeado parece
+ * ir ganhar a certa altura, cada vez mais depressa). Pouco antes do fim ficam
+ * todas iguais… e, aos 7 s (o "tádá" do som), o gráfico dá lugar ao nome do
+ * vencedor em grande, com a coroa. Os valores reais nunca aparecem: ninguém fica
+ * exposto com uma barra pequena.
  */
 function RaceSlide({ show, sound }: { show: CategoryShow; sound: boolean }) {
   const nominees = show.nominees
-  const maxVotes = Math.max(0, ...nominees.map((r) => r.votes))
   const [heights, setHeights] = useState<number[]>(() => nominees.map(() => 6))
-  const [settled, setSettled] = useState(false)
+  const [revealed, setRevealed] = useState(false)
   const timersRef = useRef<number[]>([])
 
   useEffect(() => {
     const timers = timersRef.current
     const at = (ms: number, fn: () => void) => timers.push(window.setTimeout(fn, ms))
     const n = nominees.length
-    const finalHeights = nominees.map((r) => (maxVotes > 0 ? Math.max(3, (r.votes / maxVotes) * 100) : 3))
 
     if (n > 0) {
       // ordem dos "falsos líderes": todos parecem ganhar pelo menos uma vez, por ordem aleatória
@@ -531,15 +516,15 @@ function RaceSlide({ show, sound }: { show: CategoryShow; sound: boolean }) {
       // silêncio: todas iguais, a meio
       at(calmAt, () => setHeights(nominees.map(() => 50)))
     }
-    // o som da gala começa 1,2 s depois do gráfico; as barras param e aparece a coroa aos 7 s
+    // o som da gala começa 1,2 s depois do gráfico; aos 7 s aparece o vencedor
     // (se o apresentador avançar antes disso, o som já não começa)
     if (sound) at(SOUND_DELAY_MS, () => playChartSound())
-    // valores reais e coroa no vencedor
+    // o gráfico dá lugar ao nome do vencedor (o som continua: é o mesmo ecrã)
     at(TEASE_MS, () => {
-      setHeights(finalHeights)
-      setSettled(true)
+      setRevealed(true)
+      celebrate('grand')
     })
-    // fica parado nos valores reais até o apresentador avançar
+    // fica no vencedor até o apresentador avançar
     // (o som é parado pela página ao mudar de ecrã; aqui só se cancelam os temporizadores)
     return () => {
       timersRef.current.forEach((id) => window.clearTimeout(id))
@@ -548,7 +533,15 @@ function RaceSlide({ show, sound }: { show: CategoryShow; sound: boolean }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-  const isWinner = (r: ResultRow) => settled && show.winners.some((w) => w.candidate_id === r.candidate_id)
+  // aos 7 s: o nome do vencedor em grande, no lugar do gráfico
+  if (revealed) {
+    return (
+      <motion.div data-reveal className="flex w-full justify-center" initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.15 }}>
+        <WinnerSlide show={show} instant />
+      </motion.div>
+    )
+  }
+
   const many = nominees.length > 5
   const nameBase = many ? `min(1.8vw, 3.1vh, ${(8 / nominees.length).toFixed(2)}vw)` : 'min(1.8vw, 3.1vh)'
   // nomes compridos ficam com letra um pouco mais pequena, para caberem sem cortar
@@ -583,59 +576,35 @@ function RaceSlide({ show, sound }: { show: CategoryShow; sound: boolean }) {
       ) : (
         <div className="flex min-h-0 flex-1 items-stretch justify-center gap-[min(2.2vw,3.5vh)]">
           {nominees.map((r, k) => {
-            const win = isWinner(r)
-            const lose = settled && !win
             return (
               <div key={r.candidate_id} className="flex min-w-0 max-w-[min(13vw,26vh)] flex-1 flex-col items-center text-center">
-                {/* por cima da barra: "?" enquanto brinca; no fim só a coroa no vencedor
-                    (sem votos nem percentagens, para ninguém ficar exposto) */}
+                {/* por cima da barra: "?" enquanto brinca */}
                 <div className="flex h-[15vh] shrink-0 flex-col items-center justify-end">
-                  {settled ? (
-                    // aparece logo, no instante do "tádá" do som (sem atraso)
-                    <motion.div
-                      data-reveal
-                      initial={{ opacity: 1, y: 6, scale: 0.85 }}
-                      animate={{ opacity: 1, y: 0, scale: 1 }}
-                      transition={{ duration: 0.15, ease: 'easeOut' }}
-                    >
-                      {win && <Crown className="mx-auto h-[min(5vw,8vh)] w-[min(5vw,8vh)] text-gold-300 drop-shadow-[0_0_18px_rgba(236,201,90,.9)]" />}
-                    </motion.div>
-                  ) : (
-                    <motion.span
-                      animate={{ opacity: [0.35, 0.9, 0.35] }}
-                      transition={{ duration: 0.9, repeat: Infinity }}
-                      className="font-display text-[length:min(4vw,7vh)] text-gold-200"
-                    >
-                      ?
-                    </motion.span>
-                  )}
+                  <motion.span
+                    animate={{ opacity: [0.35, 0.9, 0.35] }}
+                    transition={{ duration: 0.9, repeat: Infinity }}
+                    className="font-display text-[length:min(4vw,7vh)] text-gold-200"
+                  >
+                    ?
+                  </motion.span>
                 </div>
 
                 {/* barra (sempre no mesmo lugar; só a altura muda) */}
                 <div className="relative mt-[1vh] flex min-h-0 w-full flex-1 items-end">
                   <motion.div
-                    className={cn(
-                      'relative w-full overflow-hidden rounded-t-2xl transition-[background-color,box-shadow] duration-700',
-                      lose ? 'bg-white/15' : 'bg-gradient-to-t from-gold-700 via-gold-400 to-gold-100',
-                      win && 'shadow-[0_0_60px_rgba(236,201,90,.75)]',
-                    )}
+                    className="relative w-full overflow-hidden rounded-t-2xl bg-gradient-to-t from-gold-700 via-gold-400 to-gold-100"
                     initial={{ height: '6%' }}
                     animate={{ height: `${heights[k] ?? 0}%` }}
-                    transition={settled ? { type: 'spring', stiffness: 70, damping: 9 } : { type: 'spring', stiffness: 160, damping: 13 }}
+                    transition={{ type: 'spring', stiffness: 160, damping: 13 }}
                   >
-                    {!lose && (
-                      <div className="absolute inset-0 animate-shimmer bg-[linear-gradient(110deg,transparent_30%,rgba(255,255,255,.35)_50%,transparent_70%)] bg-[length:200%_100%]" />
-                    )}
+                    <div className="absolute inset-0 animate-shimmer bg-[linear-gradient(110deg,transparent_30%,rgba(255,255,255,.35)_50%,transparent_70%)] bg-[length:200%_100%]" />
                   </motion.div>
                 </div>
 
                 {/* nome */}
                 <div className="mt-[1.5vh] h-[12vh] w-full shrink-0">
                   <span
-                    className={cn(
-                      'line-clamp-4 font-display leading-[1.1] transition-colors duration-700 [hyphens:auto] [overflow-wrap:break-word]',
-                      win ? 'text-gold-100' : lose ? 'text-gold-50/40' : 'text-gold-50',
-                    )}
+                    className="line-clamp-4 font-display leading-[1.1] text-gold-50 [hyphens:auto] [overflow-wrap:break-word]"
                     style={nameStyle(r.candidate_name)}
                   >
                     {r.candidate_name}
@@ -650,7 +619,8 @@ function RaceSlide({ show, sound }: { show: CategoryShow; sound: boolean }) {
   )
 }
 
-function WinnerSlide({ show }: { show: CategoryShow }) {
+/** `instant`: dentro do gráfico, o nome aparece logo, no "tádá" do som (sem esperar). */
+function WinnerSlide({ show, instant }: { show: CategoryShow; instant?: boolean }) {
   const n = show.winners.length
   // vários vencedores (ex aequo): os nomes encolhem para caberem todos no ecrã; com 3 ou mais ficam em 2 colunas
   const nameSize = n <= 1 ? 'min(10vw, 17vh)' : n === 2 ? 'min(8vw, 12vh)' : n <= 4 ? 'min(4.4vw, 7vh)' : 'min(3.6vw, 5.8vh)'
@@ -674,9 +644,11 @@ function WinnerSlide({ show }: { show: CategoryShow }) {
         {show.winners.map((w, k) => (
           <motion.div
             key={w.candidate_id}
-            initial={{ scale: 0.3, opacity: 0, filter: 'blur(20px)' }}
+            initial={instant ? { scale: 0.75, opacity: 1, filter: 'blur(6px)' } : { scale: 0.3, opacity: 0, filter: 'blur(20px)' }}
             animate={{ scale: 1, opacity: 1, filter: 'blur(0px)' }}
-            transition={{ type: 'spring', damping: 11, stiffness: 80, delay: 0.15 + k * 0.3 }}
+            transition={
+              instant ? { type: 'spring', damping: 14, stiffness: 170, delay: k * 0.15 } : { type: 'spring', damping: 11, stiffness: 80, delay: 0.15 + k * 0.3 }
+            }
           >
             <Crown className="mx-auto mb-[1.5vh] text-gold-300 drop-shadow-[0_0_25px_rgba(236,201,90,.9)]" style={{ width: crownSize, height: crownSize }} />
             <div className="text-gold-animated font-display font-bold leading-[1.05]" style={{ fontSize: nameSize }}>
