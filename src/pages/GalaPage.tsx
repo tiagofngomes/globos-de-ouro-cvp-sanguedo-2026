@@ -377,7 +377,7 @@ function IntroSlide() {
         <Trophy className="mx-auto h-[42vh] w-[28vh] animate-float" />
       </motion.div>
       <motion.h1 initial={{ opacity: 0, y: 30 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.6, duration: 1, ease }} className="font-display">
-        <span className="text-gold-animated block text-[length:min(11vw,17vh)] font-bold leading-none">Globos de Ouro</span>
+        <span className="text-gold-animated block text-[length:min(11vw,17vh)] font-bold leading-none">Globos da Cruz</span>
         <span className="mt-[2vh] block text-[length:min(3.4vw,5.5vh)] tracking-[0.4em] text-gold-100">CVP SANGUEDO 2026</span>
       </motion.h1>
     </div>
@@ -561,7 +561,7 @@ function RaceSlide({ show, sound }: { show: CategoryShow; sound: boolean }) {
           transition={{ delay: 0.2 }}
           className="mt-[2vh] font-serif text-[length:min(4.4vw,7vh)] italic leading-[1.1] text-gold-50 md:text-[length:min(3.9vw,7.5vh)]"
         >
-          E o Globo de Ouro vai para…
+          E o Globo da Cruz vai para…
         </motion.h2>
         <motion.div
           initial={{ scaleX: 0 }}

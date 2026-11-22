@@ -86,7 +86,7 @@ export function ResultsAdminPage() {
         out.push([phase === 1 ? '1ª fase' : '2ª fase', c.name, i + 1, r.candidate_name, r.votes, formatPct(pct(r.votes, total)), status])
       })
     }
-    downloadFile(`globos-de-ouro-${phase === 1 ? '1a-fase' : '2a-fase'}-${new Date().toISOString().slice(0, 10)}.csv`, toCsv(out))
+    downloadFile(`globos-da-cruz-${phase === 1 ? '1a-fase' : '2a-fase'}-${new Date().toISOString().slice(0, 10)}.csv`, toCsv(out))
   }
 
   if (!categories) return <FullPageLoader />

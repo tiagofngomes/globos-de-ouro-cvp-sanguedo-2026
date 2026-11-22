@@ -3,7 +3,7 @@ import { cn } from '../../lib/cn'
 import { CategoryIcon } from './CategoryIcon'
 
 /**
- * Troféu "globo de ouro" desenhado em SVG, com brilho e a cruz da CVP na base.
+ * Troféu "Globo da Cruz" desenhado em SVG, com brilho e a cruz da CVP na base.
  * Com `icon`, o ícone da categoria aparece gravado no globo.
  */
 export function Trophy({ className, glow = true, icon }: { className?: string; glow?: boolean; icon?: string }) {
@@ -17,7 +17,7 @@ export function Trophy({ className, glow = true, icon }: { className?: string; g
           style={{ background: 'radial-gradient(closest-side, rgba(236,201,90,.45), transparent)' }}
         />
       )}
-      <svg viewBox="0 0 120 180" className="relative h-full w-full drop-shadow-[0_10px_30px_rgba(227,181,58,.45)]" role="img" aria-label="Troféu Globo de Ouro">
+      <svg viewBox="0 0 120 180" className="relative h-full w-full drop-shadow-[0_10px_30px_rgba(227,181,58,.45)]" role="img" aria-label="Troféu Globo da Cruz">
         <defs>
           <linearGradient id={`g1${id}`} x1="0" y1="0" x2="1" y2="1">
             <stop offset="0" stopColor="#fdf8e8" />

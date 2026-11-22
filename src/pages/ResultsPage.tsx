@@ -47,7 +47,7 @@ export function ResultsPage() {
       <div className="flex flex-col items-center">
         <Trophy className="h-36 w-24 animate-float" />
         <div className="mt-6">
-          <SectionTitle eyebrow="Globos de Ouro CVP Sanguedo 2026" title="Os vencedores" />
+          <SectionTitle eyebrow="Globos da Cruz CVP Sanguedo 2026" title="Os vencedores" />
         </div>
       </div>
 

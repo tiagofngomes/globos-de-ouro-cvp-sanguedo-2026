@@ -99,7 +99,7 @@ export function AdminLayout() {
             <Link to={path('/')}>
               <CvpBrand compact />
             </Link>
-            <div className="mt-2 font-display text-sm text-gold-300">Globos de Ouro · Admin</div>
+            <div className="mt-2 font-display text-sm text-gold-300">Globos da Cruz · Admin</div>
             <nav className="mt-8 flex flex-col gap-1">
               {NAV.map((n) => (
                 <NavLink

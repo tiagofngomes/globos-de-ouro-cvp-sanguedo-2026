@@ -98,8 +98,8 @@ function Hero({ state, offset, onPhaseChange }: { state: PublicState; offset: nu
 
       <motion.h1 variants={fadeUp} initial="hidden" animate="show" custom={1} className="font-display leading-[0.95]">
         <span className="text-gold-animated block text-[3.1rem] font-bold tracking-wide sm:text-8xl">Globos</span>
-        <span className="block font-serif text-2xl italic text-gold-200/90 sm:text-4xl">de</span>
-        <span className="text-gold-animated block text-[3.1rem] font-bold tracking-wide sm:text-8xl">Ouro</span>
+        <span className="block font-serif text-2xl italic text-gold-200/90 sm:text-4xl">da</span>
+        <span className="text-gold-animated block text-[3.1rem] font-bold tracking-wide sm:text-8xl">Cruz</span>
       </motion.h1>
 
       <motion.div variants={fadeUp} initial="hidden" animate="show" custom={2} className="mt-5 flex items-center gap-3">
