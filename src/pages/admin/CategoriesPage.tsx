@@ -83,6 +83,30 @@ export function CategoriesPage() {
   const eligibleOk = draftKind !== 'phase2' || eligibleLocked || (eligible.length >= ELIGIBLE_MIN && eligible.length <= ELIGIBLE_MAX)
   const canSave = !!draft && draft.name.trim().length >= 3 && eligibleOk && !secretLocked && !saving
 
+  /**
+   * Porque é que um tipo não pode ser escolhido (as mesmas regras do servidor).
+   * A razão aparece sempre por escrito, nunca só um botão apagado.
+   */
+  const kindBlockedReason = (k: CategoryKind): string | null => {
+    if (!draft) return null
+    if (draft.id) return phase1Opened && k !== kindOf(original ?? draft) ? 'o tipo de uma categoria só pode ser mudado antes de a 1ª fase abrir.' : null
+    if (k === 'phase2' && finalistsApproved)
+      return 'os finalistas já foram aprovados. Estas categorias só podem ser criadas antes da aprovação (em Finalistas, “Repor apuramento” volta atrás, mas só enquanto ninguém tiver votado na 2ª fase).'
+    if (k === 'secret' && published)
+      return 'os resultados já foram publicados. Para criar um prémio secreto, ocultem primeiro os resultados em Datas e fases.'
+    return null
+  }
+  /** porque é que o botão Guardar está desligado */
+  const saveHint = !draft || saving || secretLocked
+    ? null
+    : draft.name.trim().length < 3
+      ? 'Escreva um nome com pelo menos 3 letras.'
+      : !eligibleOk
+        ? eligible.length < ELIGIBLE_MIN
+          ? `Escolham pelo menos ${ELIGIBLE_MIN} pessoas (${eligible.length === 0 ? 'ainda não há nenhuma' : `falta ${ELIGIBLE_MIN - eligible.length}`}).`
+          : `Escolham no máximo ${ELIGIBLE_MAX} pessoas.`
+        : null
+
   /** posição dentro do grupo (1, 2, 3…) */
   const positionInGroup = (c: Category) => groupOf(kindOf(c)).findIndex((x) => x.id === c.id) + 1
 
@@ -204,7 +228,7 @@ export function CategoriesPage() {
                         #{idx + 1}
                         {kind !== 'all' && <span className="ml-2 text-gold-300/80">· {KIND_LABELS[kind]}</span>}
                       </div>
-                      <h3 className="line-clamp-3 h-[3.75em] font-display text-lg leading-tight text-gold-50" title={c.name}>
+                      <h3 className="line-clamp-3 h-[3.75em] font-display text-lg leading-tight text-gold-50">
                         {c.name}
                       </h3>
                     </div>
@@ -229,7 +253,7 @@ export function CategoriesPage() {
                         'rounded-full px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wider transition',
                         c.active !== false ? 'bg-gold-400/15 text-gold-200 hover:bg-gold-400/25' : 'bg-white/5 text-gold-100/50 hover:bg-white/10',
                       )}
-                      title={c.active !== false ? 'Desativar categoria' : 'Ativar categoria'}
+                      aria-label={c.active !== false ? 'Desativar categoria' : 'Ativar categoria'}
                     >
                       {c.active !== false ? 'Ativa' : 'Inativa'}
                     </button>
@@ -258,23 +282,15 @@ export function CategoriesPage() {
                 {KIND_ORDER.map((k) => {
                   // o tipo só muda antes da 1ª fase; criar "Apenas 2ª fase" só até à aprovação dos finalistas;
                   // criar prémios secretos só até à publicação dos resultados
-                  const blockedReason = draft.id
-                    ? phase1Opened && k !== kindOf(original ?? draft)
-                      ? 'O tipo só pode ser mudado antes de a 1ª fase abrir.'
-                      : null
-                    : k === 'phase2' && finalistsApproved
-                      ? 'Os finalistas já foram aprovados.'
-                      : k === 'secret' && published
-                        ? 'Os resultados já foram publicados.'
-                        : null
+                  const blockedReason = kindBlockedReason(k)
                   const on = draftKind === k
                   return (
                     <button
                       key={k}
                       type="button"
-                      onClick={() => !blockedReason && changeKind(k)}
-                      disabled={!!blockedReason}
-                      title={blockedReason ?? KIND_HELP[k]}
+                      // bloqueado: ao tocar, diz porquê (não fica só apagado)
+                      onClick={() => (blockedReason ? toast(`${KIND_LABELS[k]}: ${blockedReason}`, 'error') : changeKind(k))}
+                      aria-disabled={!!blockedReason}
                       className={cn(
                         'rounded-xl border px-2 py-2.5 text-xs font-semibold leading-tight transition',
                         on ? 'border-gold-300 bg-gold-400/20 text-gold-50' : 'border-white/10 text-gold-100/60 hover:border-gold-400/40',
@@ -287,10 +303,20 @@ export function CategoriesPage() {
                 })}
               </div>
               <p className="mt-2 text-xs text-gold-100/55">{KIND_HELP[draftKind]}</p>
-              {draft.id && phase1Opened && (
-                <p className="mt-1 flex items-center gap-1.5 text-[11px] text-gold-100/40">
-                  <Lock className="h-3 w-3" /> O tipo só pode ser mudado antes de a 1ª fase abrir.
+              {/* a razão de cada tipo bloqueado, sempre à vista */}
+              {draft.id && phase1Opened ? (
+                <p className="mt-2 flex items-start gap-1.5 text-[11px] leading-snug text-gold-100/60">
+                  <Lock className="mt-0.5 h-3 w-3 shrink-0" /> O tipo de uma categoria só pode ser mudado antes de a 1ª fase abrir.
                 </p>
+              ) : (
+                KIND_ORDER.filter((k) => kindBlockedReason(k)).map((k) => (
+                  <p key={k} className="mt-2 flex items-start gap-1.5 text-[11px] leading-snug text-gold-100/60">
+                    <Lock className="mt-0.5 h-3 w-3 shrink-0" />
+                    <span>
+                      <strong className="text-gold-100/80">{KIND_LABELS[k]}</strong> indisponível: {kindBlockedReason(k)}
+                    </span>
+                  </p>
+                ))
               )}
             </div>
             <div>
@@ -383,6 +409,8 @@ export function CategoriesPage() {
             <button onClick={save} disabled={!canSave} className="btn-gold w-full">
               {saving ? <Spinner className="h-4 w-4" /> : <Save className="h-4 w-4" />} Guardar
             </button>
+            {/* o botão nunca fica desligado sem se dizer porquê */}
+            {saveHint && <p className="-mt-2 text-center text-xs text-amber-300">{saveHint}</p>}
           </div>
         )}
       </Modal>

@@ -13,7 +13,7 @@ import { byCategoryOrder, kindOf } from '../lib/categories'
 import { celebrate } from '../lib/celebrate'
 import { cn } from '../lib/cn'
 import { formatPct, initials, pct, plural } from '../lib/format'
-import { crash, drumroll, fanfare, stopAllSounds } from '../lib/galaSound'
+import { playChartSound, preloadGalaSound, stopAllSounds } from '../lib/galaSound'
 
 interface CategoryShow {
   category: Category
@@ -37,8 +37,9 @@ const TEASE_MS = 7500
 
 /**
  * MODO GALA — apresentação em ecrã completo para a cerimónia final.
- * Por categoria: categoria → nomeados → gráfico a brincar (rufar de tambores) → prato!
- * o gráfico para nos valores reais → nome do vencedor em grande.
+ * Por categoria: categoria → nomeados → gráfico a brincar (com o som da gala; aos 7,5 s
+ * o gráfico para nos valores reais e aparece a coroa) → nome do vencedor em grande.
+ * Só o gráfico tem som; os outros ecrãs são em silêncio.
  * Prémios secretos (sempre no fim): categoria → nome do vencedor em grande.
  * Teclas: → / Espaço avançar · ← recuar · F ecrã completo · S som · Esc sair
  */
@@ -162,6 +163,10 @@ export function GalaPage() {
   }, [shows])
 
   const slide = slides[i]
+  // cada entrada num ecrã é uma visita nova: mesmo voltando a um ecrã que ainda está a
+  // desaparecer, ele recomeça do zero (o gráfico volta a correr, com o som)
+  const visits = useRef(0)
+  const visit = useMemo(() => (visits.current += 1), [i])
   const next = useCallback(() => setI((x) => Math.min(slides.length - 1, x + 1)), [slides.length])
   const prev = useCallback(() => setI((x) => Math.max(0, x - 1)), [])
 
@@ -169,24 +174,29 @@ export function GalaPage() {
   // nenhum ecrã avança sozinho: quem apresenta passa com a seta ou o comando.
   // Ao mudar de ecrã, o som do ecrã anterior para logo (nunca há sons por cima de sons).
   // Efeito de "layout": corre antes dos efeitos do ecrã que entra, para nunca cortar o
-  // som que esse ecrã acabou de começar (o rufar do gráfico).
+  // som que esse ecrã acabou de começar (o som do gráfico).
   useLayoutEffect(() => {
     stopAllSounds()
   }, [i])
   useEffect(() => {
     if (!slide) return
     let timer = 0
-    if (slide.kind === 'winner') {
-      if (sound) fanfare()
-      celebrate('grand')
-    }
+    if (slide.kind === 'winner') celebrate('grand')
     if (slide.kind === 'finale') timer = window.setTimeout(() => celebrate('grand'), 500)
     return () => window.clearTimeout(timer)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [i])
 
+  // o som do gráfico é preparado logo ao abrir a gala (arranca sem atraso);
   // ao sair da gala, nada fica a tocar
-  useEffect(() => () => stopAllSounds(), [])
+  useEffect(() => {
+    void preloadGalaSound()
+    return () => stopAllSounds()
+  }, [])
+  // som desligado (tecla S ou botão): cala logo o que estiver a tocar
+  useEffect(() => {
+    if (!sound) stopAllSounds()
+  }, [sound])
 
   // ------------------------------------------------------------ controlo --
   const toggleFs = useCallback(() => {
@@ -278,7 +288,7 @@ export function GalaPage() {
           animação e o ecrã ficava preso num ecrã antigo. */}
       <AnimatePresence initial={false}>
         <motion.div
-          key={i}
+          key={`${i}-${visit}`}
           data-slide={i}
           className="absolute inset-0 flex items-center justify-center px-[4vw] pb-[9vh] pt-[8vh]"
           initial={{ opacity: 0 }}
@@ -472,7 +482,7 @@ function NomineesSlide({ show }: { show: CategoryShow }) {
  * O gráfico "a brincar": as barras ficam sempre no mesmo lugar (ordem
  * alfabética) e só sobem e descem para enganar o público — cada nomeado parece
  * ir ganhar a certa altura, cada vez mais depressa. Pouco antes do fim ficam
- * todas iguais (silêncio)… e, com o prato, param nos valores reais e o vencedor brilha.
+ * todas iguais… e, aos 7,5 s (o ponto alto do som), param nos valores reais e o vencedor brilha com a coroa.
  */
 function RaceSlide({ show, sound }: { show: CategoryShow; sound: boolean }) {
   const nominees = show.nominees
@@ -484,7 +494,7 @@ function RaceSlide({ show, sound }: { show: CategoryShow; sound: boolean }) {
   const timersRef = useRef<number[]>([])
   useEffect(() => {
     if (isPresent) return
-    // o prato e as barras já não acontecem depois de avançar
+    // as barras já não mudam depois de avançar
     timersRef.current.forEach((id) => window.clearTimeout(id))
     timersRef.current = []
   }, [isPresent])
@@ -513,12 +523,12 @@ function RaceSlide({ show, sound }: { show: CategoryShow; sound: boolean }) {
       // silêncio: todas iguais, a meio
       at(calmAt, () => setHeights(nominees.map(() => 50)))
     }
-    if (sound) drumroll(TEASE_MS / 1000)
-    // prato e bombo: valores reais
+    // o som da gala começa com o gráfico: sobe até aos 7,5 s, quando as barras param
+    if (sound) playChartSound()
+    // valores reais e coroa no vencedor
     at(TEASE_MS, () => {
       setHeights(finalHeights)
       setSettled(true)
-      if (sound) crash()
     })
     // fica parado nos valores reais até o apresentador avançar
     // (o som é parado pela página ao mudar de ecrã; aqui só se cancelam os temporizadores)
