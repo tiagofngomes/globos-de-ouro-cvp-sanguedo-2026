@@ -134,6 +134,7 @@ export function createSupabaseApi(): VotingApi {
       finalistProposal: () => rpc<ProposalRow[]>('admin_finalist_proposal'),
       setFinalists: (selection) => rpcOp('admin_set_finalists', { p_selection: selection }),
       resetFinalists: () => rpcOp('admin_reset_finalists'),
+      setWinners: (categoryId, candidateIds) => rpcOp('admin_set_winners', { p_category: categoryId, p_candidates: candidateIds }),
       async updateSettings(patch: Partial<EventSettings>) {
         const { error } = await sb()
           .from('event_settings')

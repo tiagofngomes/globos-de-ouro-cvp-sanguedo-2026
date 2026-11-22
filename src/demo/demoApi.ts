@@ -32,6 +32,7 @@ interface DemoState {
   voted: Record<string, number[]> // member_id → fases em que votou
   tallies: Record<string, number> // `${phase}|${category}|${candidate}` → votos
   finalists: Record<string, string[]> // category → candidatos
+  winners?: Record<string, string[]> // category → vencedor escolhido em caso de empate (um só)
   sessions: Record<string, { member_id: string; phase: 1 | 2; expires: number }>
 }
 
@@ -189,6 +190,26 @@ const candidateName = (id: string) => state.candidates.find((c) => c.id === id)?
 function resultsVisible(phase: 1 | 2) {
   if (phase === 1) return !['pre_voting', 'phase1'].includes(state.phase) && !(state.phase === 'paused' && !state.settings.finalists_confirmed)
   return state.phase === 'awaiting_gala' || state.phase === 'results'
+}
+
+/** Como no servidor: vencedores da 2ª fase por categoria (com a escolha dos administradores em caso de empate). */
+function categoryWinners(catId: string) {
+  const fins = state.finalists[catId] ?? []
+  const votes = (id: string) => state.tallies[`2|${catId}|${id}`] ?? 0
+  const max = Math.max(0, ...fins.map(votes))
+  const top = fins.filter((id) => max > 0 && votes(id) === max)
+  const chosen = state.winners?.[catId] ?? []
+  const decided = chosen.length > 0
+  const tied = top.length > 1
+  return { top, tied, decided, winners: decided ? chosen : tied ? [] : top }
+}
+function undecidedTies() {
+  return activeCategories()
+    .filter((c) => {
+      const w = categoryWinners(c.id)
+      return w.tied && !w.decided
+    })
+    .map((c) => c.id)
 }
 
 function hasPhase2Votes() {
@@ -371,6 +392,7 @@ export function createDemoApi(): VotingApi {
           categories_active: activeCategories().length,
           finalists_count: Object.values(state.finalists).flat().length,
           results_visible: { phase1: resultsVisible(1), phase2: resultsVisible(2) },
+          winner_ties: resultsVisible(2) ? undecidedTies() : [],
           ties: state.settings.finalists_confirmed || !resultsVisible(1) ? [] : tiesList(),
         }
       },
@@ -385,7 +407,14 @@ export function createDemoApi(): VotingApi {
           for (const id of ids) {
             const votes = state.tallies[`${phase}|${cat.id}|${id}`] ?? 0
             if (phase === 1 && votes === 0) continue
-            rows.push({ category_id: cat.id, candidate_id: id, candidate_name: candidateName(id), votes, is_finalist: fins.includes(id) })
+            rows.push({
+              category_id: cat.id,
+              candidate_id: id,
+              candidate_name: candidateName(id),
+              votes,
+              is_finalist: fins.includes(id),
+              is_winner: phase === 2 && categoryWinners(cat.id).winners.includes(id),
+            })
           }
         }
         return rows.sort((a, b) => b.votes - a.votes)
@@ -407,12 +436,25 @@ export function createDemoApi(): VotingApi {
           if (sel < Math.min(2, voted) || sel > 8) return { ok: false, error: 'Cada categoria tem de ter entre 2 e 8 finalistas.' }
         }
         state.finalists = selection
+        state.winners = {}
         state.settings.finalists_confirmed = true
         state.settings.finalists_confirmed_at = new Date().toISOString()
         save()
         return { ok: true }
       },
 
+      async setWinners(categoryId, candidateIds) {
+        await delay(250)
+        if (!resultsVisible(2)) return { ok: false, error: 'A 2ª fase ainda não fechou.' }
+        if (state.settings.results_published) return { ok: false, error: 'Os resultados já foram publicados: não é possível alterar os vencedores.' }
+        const w = categoryWinners(categoryId)
+        if (!w.tied) return { ok: false, error: 'Esta categoria não tem empate no 1.º lugar.' }
+        if (new Set(candidateIds).size !== 1) return { ok: false, error: 'Escolha um único vencedor.' }
+        if (candidateIds.some((id) => !w.top.includes(id))) return { ok: false, error: 'Só pode escolher entre os empatados no 1.º lugar.' }
+        state.winners = { ...(state.winners ?? {}), [categoryId]: [...new Set(candidateIds)] }
+        save()
+        return { ok: true }
+      },
       async resetFinalists() {
         if (hasPhase2Votes()) return { ok: false, error: 'A 2ª fase já tem votos: não é possível repor os finalistas.' }
         state.finalists = {}
@@ -436,6 +478,9 @@ export function createDemoApi(): VotingApi {
           (next.phase2_closes_at !== null && ms(next.phase2_closes_at)! <= ms(next.phase2_opens_at)!)
         )
           return { ok: false, error: 'As datas estão fora de ordem.' }
+        // como no servidor: não se publica com empates no 1.º lugar por decidir
+        if (patch.results_published && !state.settings.results_published && undecidedTies().length)
+          return { ok: false, error: 'Há empates no 1.º lugar por decidir. Escolham o vencedor em Resultados (2ª fase) antes de publicar.' }
         // como no servidor: publicar só a partir do dia da gala
         if (patch.results_published && !state.settings.results_published && !isGalaDayReached(next.gala_at, Date.now()))
           return { ok: false, error: 'Os resultados só podem ser publicados a partir do dia da gala.' }

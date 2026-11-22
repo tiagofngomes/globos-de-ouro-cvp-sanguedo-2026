@@ -103,6 +103,8 @@ export interface AdminOverview {
   finalists_count: number
   /** os resultados de uma fase só ficam visíveis depois de essa fase fechar (anonimato) */
   results_visible: { phase1: boolean; phase2: boolean }
+  /** categorias com empate no 1.º lugar da 2ª fase ainda por decidir */
+  winner_ties: string[]
   ties: string[]
 }
 
@@ -112,6 +114,8 @@ export interface ResultRow {
   candidate_name: string
   votes: number
   is_finalist: boolean
+  /** 2ª fase: vencedor (o mais votado, ou o escolhido pelos administradores em caso de empate) */
+  is_winner?: boolean
 }
 
 export interface ProposalRow {
@@ -171,6 +175,8 @@ export interface VotingApi {
     finalistProposal(): Promise<ProposalRow[]>
     setFinalists(selection: Record<string, string[]>): Promise<OpResult>
     resetFinalists(): Promise<OpResult>
+    /** escolhe o vencedor (um só) numa categoria empatada no 1.º lugar */
+    setWinners(categoryId: string, candidateIds: string[]): Promise<OpResult>
     updateSettings(patch: Partial<EventSettings>): Promise<OpResult>
     resetVotes(phase: 1 | 2, confirmation: string): Promise<OpResult>
 

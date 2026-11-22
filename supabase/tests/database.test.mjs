@@ -458,5 +458,57 @@ await asUser(adminId)
 r = await val(`select public.admin_set_finalists($1::jsonb)`, [JSON.stringify(sel3)])
 ok(r.ok === true, 'depois de desativar a categoria sem votos, aprova normalmente')
 
+// ---- empate no 1.º lugar da 2ª fase: os administradores escolhem o(s) vencedor(es)
+await asSuper()
+await db.exec(`delete from public.vote_tallies where phase = 2`)
+// categoria 0: 2 empatados no topo (5 e 5) e um com 2; as outras: um vencedor claro
+await db.query(`insert into public.vote_tallies values (2, $1, $2, 5), (2, $1, $3, 5), (2, $1, $4, 2)`, [c0, sel3[c0][0], sel3[c0][1], sel3[c0][2]])
+for (const c of cats.filter((x) => x !== c0 && sel3[x]?.length)) await db.query(`insert into public.vote_tallies values (2, $1, $2, 7)`, [c, sel3[c][0]])
+await db.exec(`update public.event_settings set phase2_closes_at = now() - interval '1 minute', gala_at = now() where id`)
+await asUser(adminId)
+let ovW = await val(`select public.admin_overview()`)
+ok(JSON.stringify(ovW.winner_ties) === JSON.stringify([c0]), 'painel sinaliza o empate no 1.º lugar (só nessa categoria)')
+let res2w = (await db.query(`select * from public.admin_results(2) where category_id = $1`, [c0])).rows
+ok(res2w.filter((x) => x.is_winner).length === 0, 'antes de decidir, nenhum dos empatados aparece como vencedor')
+let pubBlocked = false
+try {
+  await db.exec(`update public.event_settings set results_published = true where id`)
+} catch (e) {
+  pubBlocked = /empates no 1/.test(e.message)
+}
+ok(pubBlocked, 'não deixa publicar com empates por decidir')
+r = await val(`select public.admin_set_winners($1, $2::jsonb)`, [c0, JSON.stringify([sel3[c0][2]])])
+ok(r.ok === false, 'não deixa escolher quem não está empatado no 1.º lugar')
+r = await val(`select public.admin_set_winners($1, $2::jsonb)`, [cats[3], JSON.stringify([sel3[cats[3]][0]])])
+ok(r.ok === false && /não tem empate/.test(r.error), 'não deixa decidir numa categoria sem empate')
+r = await val(`select public.admin_set_winners($1, $2::jsonb)`, [c0, JSON.stringify([sel3[c0][1]])])
+ok(r.ok === true, 'administrador escolhe 1 vencedor entre os empatados')
+ovW = await val(`select public.admin_overview()`)
+res2w = (await db.query(`select * from public.admin_results(2) where category_id = $1`, [c0])).rows
+ok(
+  ovW.winner_ties.length === 0 &&
+    res2w
+      .filter((x) => x.is_winner)
+      .map((x) => x.candidate_id)
+      .join() === sel3[c0][1],
+  'fica decidido: só o escolhido é vencedor',
+)
+r = await val(`select public.admin_set_winners($1, $2::jsonb)`, [c0, JSON.stringify([sel3[c0][0], sel3[c0][1]])])
+ok(r.ok === false && /único vencedor/.test(r.error), 'não deixa escolher dois vencedores (há sempre um só)')
+r = await val(`select public.admin_set_winners($1, $2::jsonb)`, [c0, JSON.stringify([sel3[c0][0]])])
+ok(
+  r.ok === true && (await db.query(`select * from public.admin_results(2) where category_id = $1 and is_winner`, [c0])).rows.length === 1,
+  'pode mudar a escolha antes de publicar',
+)
+await db.exec(`update public.event_settings set results_published = true where id`)
+await asAnon('10.9.9.9')
+const pubW = await val(`select public.get_public_results()`)
+ok(pubW.categories.find((k) => k.category_id === c0).finalists.filter((f) => f.winner).length === 1, 'página pública mostra o vencedor escolhido')
+await asUser(adminId)
+r = await val(`select public.admin_set_winners($1, $2::jsonb)`, [c0, JSON.stringify([sel3[c0][1]])])
+ok(r.ok === false, 'depois de publicar, os vencedores ficam fechados')
+await asSuper()
+await db.exec(`update public.event_settings set results_published = false where id`)
+
 console.log(failures ? `\n${failures} FALHA(S)` : '\nTodos os testes passaram.')
 process.exit(failures ? 1 : 0)

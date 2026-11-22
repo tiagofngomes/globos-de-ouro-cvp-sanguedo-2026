@@ -114,6 +114,7 @@ $$;
 create or replace function public.guard_results_publication()
 returns trigger
 language plpgsql
+security definer
 set search_path = public
 as $$
 begin
@@ -121,6 +122,9 @@ begin
     if new.gala_at is null
        or (now() at time zone 'Europe/Lisbon')::date < (new.gala_at at time zone 'Europe/Lisbon')::date then
       raise exception 'Os resultados só podem ser publicados a partir do dia da gala.' using errcode = 'P0001';
+    end if;
+    if exists (select 1 from public.category_winners() w where w.tied and not w.decided) then
+      raise exception 'Há empates no 1.º lugar por decidir. Escolham o vencedor em Resultados (2ª fase) antes de publicar.' using errcode = 'P0001';
     end if;
   end if;
   return new;
@@ -189,6 +193,8 @@ create table if not exists public.finalists (
   phase1_votes integer not null default 0,
   primary key (category_id, candidate_id)
 );
+-- Empate no 1.º lugar da 2ª fase: os administradores escolhem o vencedor (sempre um só).
+alter table public.finalists add column if not exists declared_winner boolean not null default false;
 
 -- Sessões de votação temporárias (o token só é guardado em hash).
 create table if not exists public.voting_sessions (
@@ -577,17 +583,11 @@ begin
         'category_id', k.id, 'name', k.name, 'icon', k.icon, 'description', k.description,
         -- Os números de votos não são publicados: apenas a ordem e o vencedor.
         'finalists', (
-          select coalesce(jsonb_agg(jsonb_build_object('candidate_id', r.candidate_id, 'name', r.name,
-                                                       'winner', r.votes > 0 and r.votes = r.max_votes)
-                        order by r.votes desc, r.name), '[]'::jsonb)
-          from (
-            select c.id as candidate_id, c.name, coalesce(t.votes, 0) as votes,
-                   max(coalesce(t.votes, 0)) over () as max_votes
-              from public.finalists f
-              join public.candidates c on c.id = f.candidate_id
-              left join public.vote_tallies t on t.phase = 2 and t.category_id = f.category_id and t.candidate_id = f.candidate_id
-             where f.category_id = k.id
-          ) r)
+          select coalesce(jsonb_agg(jsonb_build_object('candidate_id', w.candidate_id, 'name', c.name, 'winner', w.is_winner)
+                        order by w.votes desc, c.name), '[]'::jsonb)
+            from public.category_winners() w
+            join public.candidates c on c.id = w.candidate_id
+           where w.category_id = k.id)
       ) order by k.sort_order, k.name)
       from public.categories k where k.active), '[]'::jsonb)
   );
@@ -632,6 +632,71 @@ as $$
    where s.id
 $$;
 
+-- Vencedor da 2ª fase por categoria (sempre um só). Sem empate: o mais votado. Com
+-- empate no 1.º lugar: o escolhido pelos administradores (até decidirem, nenhum).
+create or replace function public.category_winners()
+returns table (category_id uuid, candidate_id uuid, votes integer, is_winner boolean, tied boolean, decided boolean)
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  with r as (
+    select f.category_id, f.candidate_id, coalesce(t.votes, 0) as votes, f.declared_winner
+      from public.finalists f
+      join public.categories k on k.id = f.category_id and k.active
+      left join public.vote_tallies t on t.phase = 2 and t.category_id = f.category_id and t.candidate_id = f.candidate_id
+  ),
+  m as (
+    select r.category_id, max(r.votes) as mx, bool_or(r.declared_winner) as decided,
+           count(*) filter (where r.votes = (select max(r2.votes) from r r2 where r2.category_id = r.category_id)) as at_top
+      from r group by r.category_id
+  )
+  select r.category_id, r.candidate_id, r.votes,
+         case when m.decided then r.declared_winner else (r.votes = m.mx and m.mx > 0 and m.at_top = 1) end,
+         m.mx > 0 and m.at_top > 1,
+         m.decided
+    from r join m on m.category_id = r.category_id
+$$;
+
+-- Escolha do vencedor (um só) numa categoria empatada no 1.º lugar.
+create or replace function public.admin_set_winners(p_category uuid, p_candidates jsonb)
+returns jsonb
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_ids uuid[];
+  v_bad integer;
+begin
+  perform public.assert_admin();
+  if not public.results_visible(2) then
+    return jsonb_build_object('ok', false, 'error', 'A 2ª fase ainda não fechou.');
+  end if;
+  if (select results_published from public.event_settings where id) then
+    return jsonb_build_object('ok', false, 'error', 'Os resultados já foram publicados: não é possível alterar os vencedores.');
+  end if;
+  if not exists (select 1 from public.category_winners() w where w.category_id = p_category and w.tied) then
+    return jsonb_build_object('ok', false, 'error', 'Esta categoria não tem empate no 1.º lugar.');
+  end if;
+  select array_agg(distinct x.value::uuid) into v_ids from jsonb_array_elements_text(coalesce(p_candidates, '[]'::jsonb)) as x(value);
+  if v_ids is null or array_length(v_ids, 1) <> 1 then
+    return jsonb_build_object('ok', false, 'error', 'Escolha um único vencedor.');
+  end if;
+  -- só os empatados no 1.º lugar podem ser escolhidos
+  select count(*) into v_bad from unnest(v_ids) as id
+   where id not in (select w.candidate_id from public.category_winners() w
+                     where w.category_id = p_category
+                       and w.votes = (select max(w2.votes) from public.category_winners() w2 where w2.category_id = p_category));
+  if v_bad > 0 then
+    return jsonb_build_object('ok', false, 'error', 'Só pode escolher entre os empatados no 1.º lugar.');
+  end if;
+  update public.finalists set declared_winner = (candidate_id = any(v_ids)) where category_id = p_category;
+  return jsonb_build_object('ok', true);
+end
+$$;
+
 -- Códigos de voto com indicação de "utilizado" em cada fase (nunca em quem votou).
 create or replace function public.admin_list_members()
 returns table (id uuid, member_number text, active boolean, created_at timestamptz, voted_phase1 boolean, voted_phase2 boolean)
@@ -674,6 +739,10 @@ begin
     'categories_active', (select count(*) from public.categories where active),
     'finalists_count',   (select count(*) from public.finalists),
     'results_visible', jsonb_build_object('phase1', public.results_visible(1), 'phase2', public.results_visible(2)),
+    -- empates no 1.º lugar da 2ª fase ainda por decidir (só depois do fecho da 2ª fase)
+    'winner_ties', case when public.results_visible(2)
+                        then (select coalesce(jsonb_agg(distinct w.category_id), '[]'::jsonb) from public.category_winners() w where w.tied and not w.decided)
+                        else '[]'::jsonb end,
     -- empates só depois do fecho da 1ª fase (antes disso seria revelar resultados)
     'ties', case when public.results_visible(1)
                  then (select coalesce(jsonb_agg(distinct p.category_id), '[]'::jsonb) from public.finalist_proposal() p where p.status = 'tied')
@@ -682,9 +751,10 @@ begin
 end
 $$;
 
--- Resultados por fase. Fase 2: inclui todos os finalistas (mesmo com 0 votos).
+-- Resultados por fase. Fase 2: inclui todos os finalistas (mesmo com 0 votos) e o vencedor.
+drop function if exists public.admin_results(integer);
 create or replace function public.admin_results(p_phase integer)
-returns table (category_id uuid, candidate_id uuid, candidate_name text, votes integer, is_finalist boolean)
+returns table (category_id uuid, candidate_id uuid, candidate_name text, votes integer, is_finalist boolean, is_winner boolean)
 language plpgsql
 security definer
 set search_path = public
@@ -698,17 +768,17 @@ begin
   if p_phase = 1 then
     return query
       select t.category_id, t.candidate_id, c.name, t.votes,
-             exists (select 1 from public.finalists f where f.category_id = t.category_id and f.candidate_id = t.candidate_id)
+             exists (select 1 from public.finalists f where f.category_id = t.category_id and f.candidate_id = t.candidate_id),
+             false
         from public.vote_tallies t join public.candidates c on c.id = t.candidate_id
        where t.phase = 1 and t.votes > 0
        order by t.category_id, t.votes desc, c.name;
   else
     return query
-      select f.category_id, f.candidate_id, c.name, coalesce(t.votes, 0), true
-        from public.finalists f
-        join public.candidates c on c.id = f.candidate_id
-        left join public.vote_tallies t on t.phase = 2 and t.category_id = f.category_id and t.candidate_id = f.candidate_id
-       order by f.category_id, coalesce(t.votes, 0) desc, c.name;
+      select w.category_id, w.candidate_id, c.name, w.votes, true, w.is_winner
+        from public.category_winners() w
+        join public.candidates c on c.id = w.candidate_id
+       order by w.category_id, w.votes desc, c.name;
   end if;
 end
 $$;
@@ -878,6 +948,9 @@ begin
   delete from public.vote_tallies where phase = p_phase;
   delete from public.vote_participation where phase = p_phase;
   delete from public.voting_sessions where phase = p_phase;
+  if p_phase = 2 then
+    update public.finalists set declared_winner = false where declared_winner;
+  end if;
   return jsonb_build_object('ok', true);
 end
 $$;
@@ -906,11 +979,14 @@ grant execute on function public.admin_import_members(text[])         to authent
 grant execute on function public.admin_set_member_pin(uuid, text)     to authenticated;
 grant execute on function public.admin_import_candidates(text[])      to authenticated;
 grant execute on function public.admin_reset_votes(integer, text)     to authenticated;
+grant execute on function public.admin_set_winners(uuid, jsonb)        to authenticated;
 grant execute on function public.admin_list_members()                 to authenticated;
 
 -- Funções internas: nunca expostas diretamente.
 revoke execute on function public.finalist_proposal()  from public, anon, authenticated;
 revoke execute on function public.results_visible(integer) from public, anon, authenticated;
+revoke execute on function public.category_winners() from public, anon, authenticated;
+revoke execute on function public.guard_results_publication() from public, anon, authenticated;
 
 -- -----------------------------------------------------------------------------
 -- Categorias iniciais

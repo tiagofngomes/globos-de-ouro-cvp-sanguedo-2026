@@ -47,6 +47,7 @@ export function GalaPage() {
   const [shows, setShows] = useState<CategoryShow[] | null>(null)
   const [preview, setPreview] = useState(false)
   const [blocked, setBlocked] = useState<string | null>(null)
+  const [blockedGoTo, setBlockedGoTo] = useState<'definicoes' | 'resultados'>('definicoes')
   const [i, setI] = useState(0)
   const [sound, setSound] = useState(true)
   const [fs, setFs] = useState(false)
@@ -62,6 +63,14 @@ export function GalaPage() {
       // anonimato: os resultados de uma fase só existem para o painel depois de a fase fechar
       if (!vis.phase2 && overview.settings.finalists_confirmed && (overview.phase === 'phase2' || overview.phase === 'paused')) {
         setBlocked('A 2ª fase ainda está a decorrer. Encerre-a em “Datas e fases” para poder apresentar os vencedores.')
+        setShows([])
+        return
+      }
+      if (vis.phase2 && overview.winner_ties.length > 0) {
+        setBlocked(
+          `Há empate no 1.º lugar em ${overview.winner_ties.length === 1 ? '1 categoria' : `${overview.winner_ties.length} categorias`}. Escolham o vencedor em Resultados (2ª fase) para poder apresentar a gala.`,
+        )
+        setBlockedGoTo('resultados')
         setShows([])
         return
       }
@@ -96,7 +105,8 @@ export function GalaPage() {
             category,
             // nomeados por ordem alfabética para não revelar o vencedor
             nominees: [...list].sort((a, b) => a.candidate_name.localeCompare(b.candidate_name, 'pt')),
-            winners: max > 0 ? list.filter((r) => r.votes === max) : [],
+            // vencedores: os indicados pelo servidor (com a escolha dos administradores em caso de empate)
+            winners: list.some((r) => r.is_winner) ? list.filter((r) => r.is_winner) : max > 0 ? list.filter((r) => r.votes === max) : [],
             total: list.reduce((a, r) => a + r.votes, 0),
           }
         }),
@@ -183,8 +193,8 @@ export function GalaPage() {
           <h1 className="mt-8 font-display text-[length:min(4vw,6vh)] text-gold-50">Ainda não há resultados para apresentar</h1>
           <p className="mt-4 text-gold-100/70">{blocked}</p>
           <div className="mt-8 flex flex-wrap justify-center gap-3">
-            <button onClick={() => navigate(path('/admin/definicoes'))} className="btn-gold">
-              Ir para Datas e fases
+            <button onClick={() => navigate(path(`/admin/${blockedGoTo}`))} className="btn-gold">
+              {blockedGoTo === 'resultados' ? 'Ir para Resultados' : 'Ir para Datas e fases'}
             </button>
             <button onClick={() => navigate(path('/admin'))} className="btn-ghost">
               Voltar ao painel
@@ -566,6 +576,10 @@ function RaceSlide({ show, sound, onDone }: { show: CategoryShow; sound: boolean
 }
 
 function WinnerSlide({ show }: { show: CategoryShow }) {
+  const n = show.winners.length
+  // vários vencedores (ex aequo): os nomes encolhem para caberem todos no ecrã; com 3 ou mais ficam em 2 colunas
+  const nameSize = n <= 1 ? 'min(10vw, 17vh)' : n === 2 ? 'min(8vw, 12vh)' : n <= 4 ? 'min(4.4vw, 7vh)' : 'min(3.6vw, 5.8vh)'
+  const crownSize = n <= 1 ? 'min(8vw, 13vh)' : n === 2 ? 'min(5vw, 8vh)' : 'min(3.6vw, 6vh)'
   return (
     <div className="w-full max-w-[94vw] text-center">
       {/* foco de luz sobre o vencedor */}
@@ -580,8 +594,8 @@ function WinnerSlide({ show }: { show: CategoryShow }) {
       <motion.div initial={{ y: -20, opacity: 0 }} animate={{ y: 0, opacity: 1 }} className="eyebrow relative text-[length:min(2.2vw,3.5vh)]">
         {show.category.name}
       </motion.div>
-      {show.winners.length === 0 && <p className="mt-10 text-2xl text-gold-100/60">Sem votos nesta categoria.</p>}
-      <div className="relative mt-6 flex flex-col items-center gap-6">
+      {n === 0 && <p className="mt-10 text-2xl text-gold-100/60">Sem votos nesta categoria.</p>}
+      <div className={cn('relative mt-[3vh] grid items-center justify-center', n >= 3 ? 'grid-cols-2 gap-x-[4vw] gap-y-[3vh]' : 'grid-cols-1 gap-[4vh]')}>
         {show.winners.map((w, k) => (
           <motion.div
             key={w.candidate_id}
@@ -589,12 +603,23 @@ function WinnerSlide({ show }: { show: CategoryShow }) {
             animate={{ scale: 1, opacity: 1, filter: 'blur(0px)' }}
             transition={{ type: 'spring', damping: 11, stiffness: 80, delay: 0.15 + k * 0.3 }}
           >
-            <Crown className="mx-auto mb-[2vh] h-[min(8vw,13vh)] w-[min(8vw,13vh)] text-gold-300 drop-shadow-[0_0_25px_rgba(236,201,90,.9)]" />
-            <div className="text-gold-animated font-display text-[length:min(10vw,17vh)] font-bold leading-[1.02]">{w.candidate_name}</div>
+            <Crown className="mx-auto mb-[1.5vh] text-gold-300 drop-shadow-[0_0_25px_rgba(236,201,90,.9)]" style={{ width: crownSize, height: crownSize }} />
+            <div className="text-gold-animated font-display font-bold leading-[1.05]" style={{ fontSize: nameSize }}>
+              {w.candidate_name}
+            </div>
           </motion.div>
         ))}
-        {show.winners.length > 1 && <div className="eyebrow text-cvp-400">Ex aequo</div>}
       </div>
+      {n > 1 && (
+        <motion.div
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.4 + n * 0.3 }}
+          className="relative mt-[3vh] font-serif text-[length:min(2.8vw,4.6vh)] italic text-gold-100"
+        >
+          Ex aequo
+        </motion.div>
+      )}
     </div>
   )
 }

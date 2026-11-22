@@ -52,6 +52,19 @@ export function DashboardPage() {
     <div>
       <AdminPageTitle title="Painel" subtitle="Acompanhamento em tempo real da votação" actions={<PhaseBadge phase={o.phase} />} />
 
+      {o.winner_ties.length > 0 && !s.results_published && (
+        <Link
+          to={path('/admin/resultados')}
+          className="mb-5 flex items-center gap-3 rounded-2xl border border-cvp-500/50 bg-cvp-500/15 p-4 text-sm text-red-50 transition hover:bg-cvp-500/25"
+        >
+          <AlertTriangle className="h-5 w-5 shrink-0 text-cvp-400" />
+          <span className="flex-1">
+            <strong>Empate no 1.º lugar</strong> em {o.winner_ties.length} {o.winner_ties.length === 1 ? 'categoria' : 'categorias'}. Escolham o vencedor de
+            cada uma em Resultados (2ª fase). A gala e a publicação ficam bloqueadas até decidirem.
+          </span>
+          <ArrowRight className="h-4 w-4" />
+        </Link>
+      )}
       {/* depois do fecho da 1ª fase, nada avança sem aprovação: o painel avisa sempre */}
       {o.results_visible.phase1 && !s.finalists_confirmed && o.ties.length > 0 && (
         <Link
