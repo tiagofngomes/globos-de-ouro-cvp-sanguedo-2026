@@ -136,33 +136,25 @@ function Timeline({ state, offset }: { state: PublicState; offset: number }) {
   const path = usePath()
   // no dia da gala (e daí em diante) o cartão dá acesso ao Modo Gala, com credenciais
   const galaOpen = isGalaDayReached(state.gala_at, Date.now() + offset)
+  // votação suspensa: pertence à fase cujo prazo ainda não acabou
+  const pausedIn = state.phase === 'paused' ? (Date.now() + offset <= new Date(state.phase1_closes_at).getTime() ? 1 : 2) : 0
+  const ph = state.phase === 'paused' ? (pausedIn === 1 ? 'phase1' : 'phase2') : state.phase
   const order = ['pre_voting', 'phase1', 'counting', 'phase2', 'awaiting_gala', 'results']
-  const idx = order.indexOf(state.phase === 'paused' ? 'phase1' : state.phase)
-  const steps = [
-    {
-      icon: MousePointerClick,
-      title: '1ª fase',
-      text: formatDateRange(state.phase1_opens_at, state.phase1_closes_at),
-      active: idx === 1,
-      done: idx > 1,
-      soon: false,
-    },
-    {
-      icon: TrophyIcon,
-      title: '2ª fase',
-      text: formatDateRange(state.phase2_opens_at, state.phase2_closes_at),
-      active: idx === 2 || idx === 3,
-      done: idx > 3,
-      soon: false,
-    },
+  const idx = order.indexOf(ph)
+  // estado de cada cartão: "Brevemente" (a seguir), "A decorrer" (agora), "Suspensa", "Concluído" ou nada
+  type CardStatus = 'soon' | 'active' | 'paused' | 'done' | null
+  const phase1Status: CardStatus = idx === 0 ? 'soon' : idx === 1 ? (pausedIn === 1 ? 'paused' : 'active') : 'done'
+  const phase2Status: CardStatus = idx < 2 ? null : idx === 2 ? 'soon' : idx === 3 ? (pausedIn === 2 ? 'paused' : 'active') : 'done'
+  // gala: "Brevemente" depois das votações; "A decorrer" a partir do dia da gala; "Concluído" com os resultados publicados
+  const galaStatus: CardStatus = ph === 'results' ? 'done' : galaOpen ? 'active' : idx >= 4 ? 'soon' : null
+  const steps: Array<{ icon: typeof TrophyIcon; title: string; text: string; status: CardStatus; to?: string }> = [
+    { icon: MousePointerClick, title: '1ª fase', text: formatDateRange(state.phase1_opens_at, state.phase1_closes_at), status: phase1Status },
+    { icon: TrophyIcon, title: '2ª fase', text: formatDateRange(state.phase2_opens_at, state.phase2_closes_at), status: phase2Status },
     {
       icon: PartyPopper,
       title: 'Gala',
       text: state.gala_at ? formatDate(state.gala_at) : 'Data a anunciar',
-      // "A decorrer" só no dia da gala (e daí em diante); antes disso, depois das votações, "Brevemente"
-      active: galaOpen,
-      done: false,
-      soon: !galaOpen && idx >= 4,
+      status: galaStatus,
       to: galaOpen ? path('/gala') : undefined,
     },
   ]
@@ -177,14 +169,17 @@ function Timeline({ state, offset }: { state: PublicState; offset: number }) {
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true, margin: '-40px' }}
             transition={{ delay: i * 0.12, duration: 0.6 }}
-            className={cn('card-gala flex items-center gap-4 p-5 sm:flex-col sm:text-center', (s.active || s.soon) && 'shadow-gold-lg')}
+            className={cn(
+              'card-gala flex items-center gap-4 p-5 sm:flex-col sm:text-center',
+              (s.status === 'active' || s.status === 'paused' || s.status === 'soon') && 'shadow-gold-lg',
+            )}
           >
             <div
               className={cn(
                 'grid h-12 w-12 shrink-0 place-items-center rounded-full border',
-                s.active || s.soon
+                s.status && s.status !== 'done'
                   ? 'border-gold-300 bg-gold-400/20 text-gold-100'
-                  : s.done
+                  : s.status === 'done'
                     ? 'border-gold-600/50 text-gold-500'
                     : 'border-white/10 text-gold-100/40',
               )}
@@ -194,9 +189,16 @@ function Timeline({ state, offset }: { state: PublicState; offset: number }) {
             <div>
               <div className="flex items-center gap-2 sm:justify-center">
                 <span className="font-display text-lg text-gold-100">{s.title}</span>
-                {s.active && <span className="rounded-full bg-cvp-500 px-2 py-0.5 text-[9px] font-bold uppercase tracking-widest text-white">A decorrer</span>}
-                {s.done && <span className="text-[10px] uppercase tracking-widest text-gold-500">Concluído</span>}
-                {s.soon && (
+                {s.status === 'active' && (
+                  <span className="rounded-full bg-cvp-500 px-2 py-0.5 text-[9px] font-bold uppercase tracking-widest text-white">A decorrer</span>
+                )}
+                {s.status === 'paused' && (
+                  <span className="rounded-full border border-cvp-500/70 px-2 py-0.5 text-[9px] font-bold uppercase tracking-widest text-red-200">
+                    Suspensa
+                  </span>
+                )}
+                {s.status === 'done' && <span className="text-[10px] uppercase tracking-widest text-gold-500">Concluído</span>}
+                {s.status === 'soon' && (
                   <span className="rounded-full border border-gold-400/50 px-2 py-0.5 text-[9px] font-bold uppercase tracking-widest text-gold-200">
                     Brevemente
                   </span>
