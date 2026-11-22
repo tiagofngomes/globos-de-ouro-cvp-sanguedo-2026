@@ -12,7 +12,7 @@ import { Trophy } from '../components/ui/Trophy'
 import { byCategoryOrder, kindOf } from '../lib/categories'
 import { celebrate } from '../lib/celebrate'
 import { cn } from '../lib/cn'
-import { formatPct, initials, pct, plural } from '../lib/format'
+import { initials } from '../lib/format'
 import { playChartSound, preloadGalaSound, stopAllSounds } from '../lib/galaSound'
 
 interface CategoryShow {
@@ -550,7 +550,6 @@ function RaceSlide({ show, sound }: { show: CategoryShow; sound: boolean }) {
 
   const isWinner = (r: ResultRow) => settled && show.winners.some((w) => w.candidate_id === r.candidate_id)
   const many = nominees.length > 5
-  const pctStyle = many ? { fontSize: `min(3.4vw, 6vh, ${(20 / nominees.length).toFixed(2)}vw)` } : undefined
   const nameBase = many ? `min(1.8vw, 3.1vh, ${(8 / nominees.length).toFixed(2)}vw)` : 'min(1.8vw, 3.1vh)'
   // nomes compridos ficam com letra um pouco mais pequena, para caberem sem cortar
   const nameStyle = (name: string) => {
@@ -588,7 +587,8 @@ function RaceSlide({ show, sound }: { show: CategoryShow; sound: boolean }) {
             const lose = settled && !win
             return (
               <div key={r.candidate_id} className="flex min-w-0 max-w-[min(13vw,26vh)] flex-1 flex-col items-center text-center">
-                {/* valor por cima da barra: "?" enquanto brinca, valores reais no fim */}
+                {/* por cima da barra: "?" enquanto brinca; no fim só a coroa no vencedor
+                    (sem votos nem percentagens, para ninguém ficar exposto) */}
                 <div className="flex h-[15vh] shrink-0 flex-col items-center justify-end">
                   {settled ? (
                     // aparece logo, no instante do "tádá" do som (sem atraso)
@@ -598,19 +598,7 @@ function RaceSlide({ show, sound }: { show: CategoryShow; sound: boolean }) {
                       animate={{ opacity: 1, y: 0, scale: 1 }}
                       transition={{ duration: 0.15, ease: 'easeOut' }}
                     >
-                      {win && <Crown className="mx-auto h-[min(3.4vw,5.5vh)] w-[min(3.4vw,5.5vh)] text-gold-300 drop-shadow-[0_0_18px_rgba(236,201,90,.9)]" />}
-                      <div
-                        className={cn(
-                          'font-display text-[length:min(3.4vw,6vh)] font-bold tabular-nums leading-none',
-                          win ? 'text-gold-100' : 'text-gold-50/50',
-                        )}
-                        style={pctStyle}
-                      >
-                        {formatPct(pct(r.votes, show.total))}
-                      </div>
-                      <div className={cn('mt-1 text-[length:min(1.5vw,2.5vh)] tabular-nums', win ? 'text-gold-200/80' : 'text-gold-50/35')}>
-                        {plural(r.votes, 'voto', 'votos')}
-                      </div>
+                      {win && <Crown className="mx-auto h-[min(5vw,8vh)] w-[min(5vw,8vh)] text-gold-300 drop-shadow-[0_0_18px_rgba(236,201,90,.9)]" />}
                     </motion.div>
                   ) : (
                     <motion.span
