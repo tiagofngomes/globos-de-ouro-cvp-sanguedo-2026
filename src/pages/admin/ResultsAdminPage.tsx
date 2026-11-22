@@ -7,6 +7,7 @@ import { AdminPageTitle, Panel, useAdmin } from '../../components/admin/AdminLay
 import { BarChart, type BarDatum } from '../../components/charts/BarChart'
 import { CategoryMedallion } from '../../components/ui/CategoryIcon'
 import { FullPageLoader, Spinner, useToast } from '../../components/ui/Feedback'
+import { votedInPhase } from '../../lib/categories'
 import { cn } from '../../lib/cn'
 import { downloadFile, toCsv } from '../../lib/csv'
 import { formatPct, pct, plural } from '../../lib/format'
@@ -34,8 +35,14 @@ export function ResultsAdminPage() {
   }, [api])
   const [version, setVersion] = useState(0)
   useEffect(() => {
-    api.admin.results(phase).then(setRows)
-    if (phase === 1) api.admin.finalistProposal().then(setProposal)
+    // ao mudar de separador, uma resposta atrasada da fase anterior é ignorada
+    // (sem isto, o separador da 2ª fase podia ficar com os números da 1ª)
+    let current = true
+    api.admin.results(phase).then((r) => current && setRows(r))
+    if (phase === 1) api.admin.finalistProposal().then((p) => current && setProposal(p))
+    return () => {
+      current = false
+    }
   }, [api, phase, voters, version])
 
   const winnerTies = overview?.winner_ties ?? []
@@ -49,6 +56,8 @@ export function ResultsAdminPage() {
   }
 
   const confirmed = overview?.settings.finalists_confirmed ?? false
+  // cada separador mostra as categorias votadas nessa fase (1ª: Todas as fases; 2ª: também Apenas 2ª fase)
+  const phaseCats = useMemo(() => (categories ?? []).filter((c) => votedInPhase(c, phase)), [categories, phase])
 
   const byCategory = useMemo(() => {
     const map: Record<string, ResultRow[]> = {}
@@ -60,7 +69,7 @@ export function ResultsAdminPage() {
   const exportCsv = () => {
     if (!categories) return
     const out: Array<Array<string | number>> = [['Fase', 'Categoria', 'Posição', 'Nome', 'Votos', 'Percentagem', 'Estado']]
-    for (const c of categories) {
+    for (const c of phaseCats) {
       const list = byCategory[c.id] ?? []
       const total = list.reduce((a, r) => a + r.votes, 0)
       list.forEach((r, i) => {
@@ -132,7 +141,7 @@ export function ResultsAdminPage() {
       )}
 
       <div className={cn('grid grid-cols-1 gap-4 xl:grid-cols-2', hidden && 'hidden')}>
-        {categories.map((c) => {
+        {phaseCats.map((c) => {
           const list = byCategory[c.id] ?? []
           const total = list.reduce((a, r) => a + r.votes, 0)
           const max = list[0]?.votes ?? 0

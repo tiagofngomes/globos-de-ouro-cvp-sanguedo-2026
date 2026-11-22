@@ -126,6 +126,9 @@ begin
     if exists (select 1 from public.category_winners() w where w.tied and not w.decided) then
       raise exception 'Há empates no 1.º lugar por decidir. Escolham o vencedor em Resultados (2ª fase) antes de publicar.' using errcode = 'P0001';
     end if;
+    if exists (select 1 from public.categories k where k.active and k.kind = 'secret' and k.secret_winner is null) then
+      raise exception 'Falta escrever o vencedor de um prémio secreto. Escrevam-no em Categorias antes de publicar.' using errcode = 'P0001';
+    end if;
   end if;
   return new;
 end
@@ -196,6 +199,39 @@ create table if not exists public.finalists (
 -- Empate no 1.º lugar da 2ª fase: os administradores escolhem o vencedor (sempre um só).
 alter table public.finalists add column if not exists declared_winner boolean not null default false;
 
+-- Tipos de categoria (o tipo decide o que o sistema faz com ela):
+--   'all'    Todas as fases: votada na 1ª e na 2ª fase (o comportamento de sempre).
+--   'phase2' Apenas 2ª fase: os administradores escolhem de 2 a 8 pessoas da lista
+--            de candidatos; não existe na 1ª fase e essas pessoas são os finalistas.
+--   'secret' Prémio secreto: sem votação; o vencedor é escrito à mão e a categoria
+--            fica escondida de todos (no servidor) até à gala.
+-- Ordem por grupos, sempre: Todas as fases, depois Apenas 2ª fase, depois Prémios secretos.
+alter table public.categories add column if not exists kind text not null default 'all';
+alter table public.categories add column if not exists secret_winner text;
+do $$
+begin
+  if not exists (select 1 from pg_constraint where conname = 'categories_kind_check') then
+    alter table public.categories add constraint categories_kind_check check (kind in ('all', 'phase2', 'secret'));
+  end if;
+end
+$$;
+
+create or replace function public.category_group(p_kind text)
+returns integer
+language sql
+immutable
+parallel safe
+as $$
+  select case p_kind when 'all' then 0 when 'phase2' then 1 else 2 end
+$$;
+
+-- Pessoas escolhidas para as categorias "Apenas 2ª fase" (de 2 a 8 por categoria).
+create table if not exists public.category_eligible (
+  category_id  uuid not null references public.categories (id) on delete cascade,
+  candidate_id uuid not null references public.candidates (id) on delete cascade,
+  primary key (category_id, candidate_id)
+);
+
 -- Sessões de votação temporárias (o token só é guardado em hash).
 create table if not exists public.voting_sessions (
   token_hash text primary key,
@@ -240,6 +276,7 @@ alter table public.vote_tallies       enable row level security;
 alter table public.finalists          enable row level security;
 alter table public.voting_sessions    enable row level security;
 alter table public.access_attempts    enable row level security;
+alter table public.category_eligible  enable row level security;
 
 drop policy if exists admins_self_read on public.admins;
 create policy admins_self_read on public.admins for select to authenticated using (user_id = auth.uid());
@@ -259,6 +296,8 @@ drop policy if exists admin_read on public.finalists;
 create policy admin_read on public.finalists for select to authenticated using (public.is_admin());
 -- vote_participation, voting_sessions e access_attempts: sem políticas →
 -- inacessíveis diretamente, até para administradores.
+-- category_eligible: sem políticas nem privilégios; gere-se só pelas funções
+-- admin_list_categories() e admin_set_eligible().
 
 -- Privilégios explícitos: funciona quer o projeto conceda acesso automático às
 -- novas tabelas ("Grant API access to new tables automatically") quer não.
@@ -274,6 +313,68 @@ grant insert (member_number, active) on public.members to authenticated;
 grant update (active) on public.members to authenticated;
 grant delete on public.members to authenticated;
 -- vote_participation, voting_sessions e access_attempts: sem privilégios nem políticas.
+
+-- Alterações às categorias que podem partir a votação ficam bloqueadas, venham de onde vierem.
+create or replace function public.guard_categories()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  s public.event_settings;
+begin
+  select * into s from public.event_settings where id;
+
+  if tg_op = 'DELETE' then
+    if old.kind = 'secret' and s.results_published then
+      raise exception 'Os resultados já foram publicados: os prémios secretos já não podem ser alterados.' using errcode = 'P0001';
+    end if;
+    return old;
+  end if;
+
+  -- o vencedor escrito à mão só existe nos prémios secretos
+  if new.kind = 'secret' then
+    new.secret_winner := nullif(regexp_replace(trim(coalesce(new.secret_winner, '')), '\s+', ' ', 'g'), '');
+  else
+    new.secret_winner := null;
+  end if;
+
+  if tg_op = 'INSERT' then
+    if new.kind = 'phase2' and s.finalists_confirmed then
+      raise exception 'Os finalistas já foram aprovados: já não é possível criar categorias "Apenas 2ª fase".' using errcode = 'P0001';
+    end if;
+    if new.kind = 'secret' and s.results_published then
+      raise exception 'Os resultados já foram publicados: já não é possível criar prémios secretos.' using errcode = 'P0001';
+    end if;
+    return new;
+  end if;
+
+  -- UPDATE
+  if new.kind is distinct from old.kind and now() >= s.phase1_opens_at then
+    raise exception 'O tipo da categoria só pode ser mudado antes de a 1ª fase abrir.' using errcode = 'P0001';
+  end if;
+  if (old.kind = 'secret' or new.kind = 'secret') and s.results_published
+     and (new.name, new.description, new.icon, new.active, new.secret_winner, new.kind)
+         is distinct from (old.name, old.description, old.icon, old.active, old.secret_winner, old.kind) then
+    raise exception 'Os resultados já foram publicados: os prémios secretos já não podem ser alterados.' using errcode = 'P0001';
+  end if;
+  -- depois da aprovação dos finalistas, uma categoria com votação só pode voltar a ser
+  -- ativada se tiver finalistas (sem eles, ninguém conseguiria concluir o voto na 2ª fase)
+  if new.active and not old.active and new.kind <> 'secret' and s.finalists_confirmed
+     and not exists (select 1 from public.finalists f where f.category_id = new.id) then
+    raise exception 'Os finalistas já foram aprovados e esta categoria não tem finalistas: não pode ser ativada agora.' using errcode = 'P0001';
+  end if;
+  if old.kind = 'phase2' and new.kind <> 'phase2' then
+    delete from public.category_eligible where category_id = old.id;
+  end if;
+  return new;
+end
+$$;
+drop trigger if exists guard_categories on public.categories;
+create trigger guard_categories
+  before insert or update or delete on public.categories
+  for each row execute function public.guard_categories();
 
 -- -----------------------------------------------------------------------------
 -- Lógica de fases (sempre com a hora do servidor)
@@ -318,7 +419,7 @@ as $$
            row_number() over (partition by t.category_id order by t.votes desc, c.name) as rn
     from public.vote_tallies t
     join public.candidates c on c.id = t.candidate_id
-    join public.categories k on k.id = t.category_id and k.active
+    join public.categories k on k.id = t.category_id and k.active and k.kind = 'all'
     where t.phase = 1 and t.votes > 0
   ),
   cutoff as (
@@ -380,12 +481,18 @@ begin
     'gala_at',           s.gala_at,
     'finalists_per_category', s.finalists_per_category,
     'codes_numeric', not exists (select 1 from public.members m where m.active and m.member_number !~ '^[0-9]+$'),
+    -- "Apenas 2ª fase" só aparece depois do fecho da 1ª fase; os prémios secretos
+    -- só depois de os resultados serem publicados (até lá não existem para ninguém)
     'categories', coalesce((
       select jsonb_agg(jsonb_build_object(
                'id', c.id, 'slug', c.slug, 'name', c.name,
-               'description', c.description, 'icon', c.icon, 'sort_order', c.sort_order)
-             order by c.sort_order, c.name)
-      from public.categories c where c.active), '[]'::jsonb)
+               'description', c.description, 'icon', c.icon, 'sort_order', c.sort_order, 'kind', c.kind)
+             order by public.category_group(c.kind), c.sort_order, c.name)
+      from public.categories c
+     where c.active
+       and (c.kind = 'all'
+            or (c.kind = 'phase2' and now() > s.phase1_closes_at)
+            or (c.kind = 'secret' and s.results_published))), '[]'::jsonb)
   );
 end
 $$;
@@ -518,8 +625,10 @@ begin
     return jsonb_build_object('ok', false, 'error', 'voting_closed', 'phase', v_phase);
   end if;
 
-  -- Um voto (e apenas um) por cada categoria ativa.
-  select count(*) into v_active from public.categories where active;
+  -- Um voto (e apenas um) por cada categoria ativa votada nesta fase: na 1ª fase só
+  -- "Todas as fases"; na 2ª também "Apenas 2ª fase". Os prémios secretos nunca se votam.
+  select count(*) into v_active from public.categories
+   where active and (kind = 'all' or (kind = 'phase2' and v_phase_n = 2));
   select count(*), count(distinct (e ->> 'category_id')) into v_given, v_valid
     from jsonb_array_elements(p_votes) e;
   if v_given <> v_active or v_valid <> v_active then
@@ -530,12 +639,12 @@ begin
   if v_phase_n = 1 then
     select count(*) into v_valid
       from jsonb_array_elements(p_votes) e
-      join public.categories k on k.id::text = e ->> 'category_id' and k.active
+      join public.categories k on k.id::text = e ->> 'category_id' and k.active and k.kind = 'all'
       join public.candidates c on c.id::text = e ->> 'candidate_id' and c.active;
   else
     select count(*) into v_valid
       from jsonb_array_elements(p_votes) e
-      join public.categories k on k.id::text = e ->> 'category_id' and k.active
+      join public.categories k on k.id::text = e ->> 'category_id' and k.active and k.kind in ('all', 'phase2')
       join public.finalists f on f.category_id = k.id and f.candidate_id::text = e ->> 'candidate_id';
   end if;
   if v_valid <> v_active then
@@ -580,15 +689,19 @@ begin
     'published', true,
     'categories', coalesce((
       select jsonb_agg(jsonb_build_object(
-        'category_id', k.id, 'name', k.name, 'icon', k.icon, 'description', k.description,
+        'category_id', k.id, 'name', k.name, 'icon', k.icon, 'description', k.description, 'kind', k.kind,
         -- Os números de votos não são publicados: apenas a ordem e o vencedor.
-        'finalists', (
+        'finalists', case when k.kind = 'secret'
+          -- prémio secreto: só o vencedor escrito à mão
+          then case when k.secret_winner is null then '[]'::jsonb
+                    else jsonb_build_array(jsonb_build_object('candidate_id', k.id, 'name', k.secret_winner, 'winner', true)) end
+          else (
           select coalesce(jsonb_agg(jsonb_build_object('candidate_id', w.candidate_id, 'name', c.name, 'winner', w.is_winner)
                         order by w.votes desc, c.name), '[]'::jsonb)
             from public.category_winners() w
             join public.candidates c on c.id = w.candidate_id
-           where w.category_id = k.id)
-      ) order by k.sort_order, k.name)
+           where w.category_id = k.id) end
+      ) order by public.category_group(k.kind), k.sort_order, k.name)
       from public.categories k where k.active), '[]'::jsonb)
   );
 end
@@ -743,6 +856,9 @@ begin
     'winner_ties', case when public.results_visible(2)
                         then (select coalesce(jsonb_agg(distinct w.category_id), '[]'::jsonb) from public.category_winners() w where w.tied and not w.decided)
                         else '[]'::jsonb end,
+    -- prémios secretos ativos ainda sem o vencedor escrito (bloqueiam a gala e a publicação)
+    'secret_missing', (select coalesce(jsonb_agg(k.id order by k.sort_order), '[]'::jsonb)
+                         from public.categories k where k.active and k.kind = 'secret' and k.secret_winner is null),
     -- empates só depois do fecho da 1ª fase (antes disso seria revelar resultados)
     'ties', case when public.results_visible(1)
                  then (select coalesce(jsonb_agg(distinct p.category_id), '[]'::jsonb) from public.finalist_proposal() p where p.status = 'tied')
@@ -801,6 +917,8 @@ $$;
 -- Aprovação dos finalistas pelos administradores (a única forma de abrir a 2ª fase).
 -- Cada categoria ativa tem de ter entre 2 e 8 finalistas (ou 1, se só uma pessoa
 -- teve votos nessa categoria). Uma categoria sem votos tem de ser desativada.
+-- Categorias "Apenas 2ª fase": os finalistas são as pessoas escolhidas em Categorias
+-- (só as que continuam ativas), de 2 a 8. Os prémios secretos não entram aqui.
 -- p_selection: { "<category_id>": ["<candidate_id>", ...], ... }
 create or replace function public.admin_set_finalists(p_selection jsonb)
 returns jsonb
@@ -821,7 +939,19 @@ begin
     return jsonb_build_object('ok', false, 'error', 'A 2ª fase já tem votos: não é possível alterar os finalistas.');
   end if;
 
-  for k in select c.id, c.name from public.categories c where c.active order by c.sort_order loop
+  for k in select c.id, c.name, c.kind from public.categories c
+            where c.active and c.kind in ('all', 'phase2')
+            order by public.category_group(c.kind), c.sort_order loop
+    if k.kind = 'phase2' then
+      select count(*) into v_sel from public.category_eligible e
+        join public.candidates c on c.id = e.candidate_id and c.active
+       where e.category_id = k.id;
+      if v_sel < 2 or v_sel > 8 then
+        return jsonb_build_object('ok', false, 'error',
+          format('A categoria "%s" (apenas 2ª fase) precisa de 2 a 8 pessoas ativas escolhidas em Categorias.', k.name));
+      end if;
+      continue;
+    end if;
     select count(*) into v_voted from public.vote_tallies t where t.phase = 1 and t.category_id = k.id and t.votes > 0;
     select count(distinct x.value) into v_sel
       from jsonb_array_elements_text(coalesce(p_selection -> k.id::text, '[]'::jsonb)) as x(value);
@@ -835,7 +965,14 @@ begin
   end loop;
 
   delete from public.finalists where true; -- "where" obrigatório no Supabase (safeupdate)
-  for k in select c.id from public.categories c where c.active loop
+  -- "Apenas 2ª fase": entram as pessoas escolhidas (ativas)
+  insert into public.finalists (category_id, candidate_id, phase1_votes)
+  select e.category_id, e.candidate_id, 0
+    from public.category_eligible e
+    join public.categories cat on cat.id = e.category_id and cat.active and cat.kind = 'phase2'
+    join public.candidates c on c.id = e.candidate_id and c.active
+  on conflict do nothing;
+  for k in select c.id from public.categories c where c.active and c.kind = 'all' loop
     insert into public.finalists (category_id, candidate_id, phase1_votes)
     select k.id, x.value::uuid, coalesce((select t.votes from public.vote_tallies t
                                      where t.phase = 1 and t.category_id = k.id and t.candidate_id = x.value::uuid), 0)
@@ -955,6 +1092,60 @@ begin
 end
 $$;
 
+-- Categorias para o painel (inclui o tipo, o vencedor dos prémios secretos e as
+-- pessoas escolhidas nas categorias "Apenas 2ª fase"), pela ordem dos grupos.
+create or replace function public.admin_list_categories()
+returns table (id uuid, slug text, name text, description text, icon text, sort_order integer, active boolean,
+               created_at timestamptz, kind text, secret_winner text, eligible uuid[])
+language plpgsql
+stable
+security definer
+set search_path = public
+as $$
+begin
+  perform public.assert_admin();
+  return query
+    select c.id, c.slug, c.name, c.description, c.icon, c.sort_order, c.active, c.created_at, c.kind, c.secret_winner,
+           coalesce((select array_agg(e.candidate_id order by e.candidate_id) from public.category_eligible e where e.category_id = c.id), '{}'::uuid[])
+      from public.categories c
+     order by public.category_group(c.kind), c.sort_order, c.name;
+end
+$$;
+
+-- Pessoas de uma categoria "Apenas 2ª fase": de 2 a 8, da lista de candidatos.
+-- Só se pode mudar até à aprovação dos finalistas (depois disso são os finalistas).
+create or replace function public.admin_set_eligible(p_category uuid, p_candidates jsonb)
+returns jsonb
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_ids uuid[];
+  v_ok integer;
+begin
+  perform public.assert_admin();
+  if not exists (select 1 from public.categories where id = p_category and kind = 'phase2') then
+    return jsonb_build_object('ok', false, 'error', 'Esta categoria não é "Apenas 2ª fase".');
+  end if;
+  if (select finalists_confirmed from public.event_settings where id) then
+    return jsonb_build_object('ok', false, 'error',
+      'Os finalistas já foram aprovados: as pessoas desta categoria já não podem ser mudadas.');
+  end if;
+  select array_agg(distinct x.value::uuid) into v_ids from jsonb_array_elements_text(coalesce(p_candidates, '[]'::jsonb)) as x(value);
+  if v_ids is null or array_length(v_ids, 1) < 2 or array_length(v_ids, 1) > 8 then
+    return jsonb_build_object('ok', false, 'error', 'Escolham entre 2 e 8 pessoas.');
+  end if;
+  select count(*) into v_ok from public.candidates c where c.id = any(v_ids) and c.active;
+  if v_ok <> array_length(v_ids, 1) then
+    return jsonb_build_object('ok', false, 'error', 'Só podem ser escolhidas pessoas ativas da lista de candidatos.');
+  end if;
+  delete from public.category_eligible where category_id = p_category;
+  insert into public.category_eligible (category_id, candidate_id) select p_category, unnest(v_ids);
+  return jsonb_build_object('ok', true);
+end
+$$;
+
 -- -----------------------------------------------------------------------------
 -- Permissões das funções
 -- -----------------------------------------------------------------------------
@@ -981,12 +1172,15 @@ grant execute on function public.admin_import_candidates(text[])      to authent
 grant execute on function public.admin_reset_votes(integer, text)     to authenticated;
 grant execute on function public.admin_set_winners(uuid, jsonb)        to authenticated;
 grant execute on function public.admin_list_members()                 to authenticated;
+grant execute on function public.admin_list_categories()              to authenticated;
+grant execute on function public.admin_set_eligible(uuid, jsonb)      to authenticated;
 
 -- Funções internas: nunca expostas diretamente.
 revoke execute on function public.finalist_proposal()  from public, anon, authenticated;
 revoke execute on function public.results_visible(integer) from public, anon, authenticated;
 revoke execute on function public.category_winners() from public, anon, authenticated;
 revoke execute on function public.guard_results_publication() from public, anon, authenticated;
+revoke execute on function public.guard_categories() from public, anon, authenticated;
 
 -- -----------------------------------------------------------------------------
 -- Categorias iniciais

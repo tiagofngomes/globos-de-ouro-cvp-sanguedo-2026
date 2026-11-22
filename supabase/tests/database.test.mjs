@@ -510,5 +510,215 @@ ok(r.ok === false, 'depois de publicar, os vencedores ficam fechados')
 await asSuper()
 await db.exec(`update public.event_settings set results_published = false where id`)
 
+// =============================================================================
+// ---- tipos de categoria: Todas as fases, Apenas 2ª fase e Prémio secreto
+// =============================================================================
+console.log('\n— Tipos de categoria —')
+const errOf = async (sql, params) => {
+  try {
+    await db.query(sql, params)
+    return null
+  } catch (e) {
+    return e.message
+  }
+}
+await asUser(adminId)
+ok(
+  /tipo da categoria/.test(await errOf(`update public.categories set kind = 'phase2' where id = $1`, [cats[5]])),
+  'com a 1ª fase já aberta, o tipo de uma categoria não pode ser mudado',
+)
+const cDefault = await val(`insert into public.categories (slug, name, sort_order) values ('teste-omissao', 'Prémio Por Omissão', 50) returning kind`)
+ok(cDefault === 'all', 'uma categoria nova é "Todas as fases" por omissão')
+await db.exec(`delete from public.categories where slug = 'teste-omissao'`)
+
+// recomeço limpo: antes da 1ª fase, sem votos nem finalistas
+await asSuper()
+await db.exec(`
+  delete from public.vote_tallies where true;
+  delete from public.vote_participation where true;
+  delete from public.voting_sessions where true;
+  delete from public.finalists where true;
+  update public.event_settings set phase1_opens_at = now() + interval '1 day', phase1_closes_at = now() + interval '2 days',
+    phase2_opens_at = now() + interval '3 days', phase2_closes_at = null, gala_at = null, results_published = false,
+    finalists_confirmed = false, finalists_confirmed_at = null where id;
+`)
+await asUser(adminId)
+ok((await val(`select public.admin_overview()`)).phase === 'pre_voting', 'cenário limpo antes da 1ª fase')
+const P = await val(
+  `insert into public.categories (slug, name, description, icon, sort_order, kind) values ('so-2a', 'Prémio Só 2ª Fase', 'Teste', 'star', 1, 'phase2') returning id`,
+)
+const S = await val(
+  `insert into public.categories (slug, name, description, icon, sort_order, kind, secret_winner) values ('secreto', 'Prémio Secreto Teste', 'Surpresa', 'crown', 1, 'secret', '  Maria   da Silva ') returning id`,
+)
+ok((await val(`select secret_winner from public.categories where id = $1`, [S])) === 'Maria da Silva', 'nome do vencedor secreto fica arrumado (espaços)')
+ok(!(await errOf(`update public.categories set kind = 'phase2' where id = $1`, [cats[5]])), 'antes da 1ª fase, o tipo pode ser mudado')
+await db.query(`update public.categories set kind = 'all', secret_winner = 'Não Devia' where id = $1`, [cats[5]])
+ok((await val(`select secret_winner from public.categories where id = $1`, [cats[5]])) === null, 'só os prémios secretos guardam um vencedor escrito à mão')
+
+// pessoas da categoria "Apenas 2ª fase": de 2 a 8, ativas
+const ids = (a, b) => JSON.stringify(cands.slice(a, b).map((x) => x.id))
+r = await val(`select public.admin_set_eligible($1, $2::jsonb)`, [P, ids(0, 1)])
+ok(r.ok === false && /entre 2 e 8/.test(r.error), 'recusa 1 pessoa na "Apenas 2ª fase"')
+r = await val(`select public.admin_set_eligible($1, $2::jsonb)`, [P, ids(0, 9)])
+ok(r.ok === false && /entre 2 e 8/.test(r.error), 'recusa 9 pessoas na "Apenas 2ª fase"')
+r = await val(`select public.admin_set_eligible($1, $2::jsonb)`, [cats[0], ids(0, 3)])
+ok(r.ok === false, 'não deixa escolher pessoas numa categoria "Todas as fases"')
+await db.query(`update public.candidates set active = false where id = $1`, [cands[19].id])
+r = await val(`select public.admin_set_eligible($1, $2::jsonb)`, [P, ids(17, 20)])
+ok(r.ok === false && /ativas/.test(r.error), 'só aceita pessoas ativas da lista de candidatos')
+await db.query(`update public.candidates set active = true where id = $1`, [cands[19].id])
+r = await val(`select public.admin_set_eligible($1, $2::jsonb)`, [P, ids(10, 18)])
+ok(r.ok === true, 'aceita 8 pessoas (o máximo)')
+r = await val(`select public.admin_set_eligible($1, $2::jsonb)`, [P, ids(10, 17)])
+ok(r.ok === true, 'aceita 7 pessoas e substitui a lista anterior')
+const lc = (await db.query(`select * from public.admin_list_categories()`)).rows
+ok(
+  lc.findIndex((c) => c.id === P) > lc.findLastIndex((c) => c.kind === 'all') && lc[lc.length - 1].id === S,
+  'ordem por grupos: Todas as fases, depois Apenas 2ª fase, depois Prémios secretos',
+)
+ok(lc.find((c) => c.id === P).eligible.length === 7 && lc.find((c) => c.id === S).secret_winner === 'Maria da Silva', 'painel recebe as pessoas e o vencedor secreto')
+
+// quem não é administrador não chega a nada disto
+await asAnon('10.20.0.1')
+for (const sql of [`select * from public.category_eligible`, `select * from public.admin_list_categories()`]) {
+  let denied = false
+  try {
+    denied = (await db.query(sql)).rows.length === 0
+  } catch {
+    denied = true
+  }
+  ok(denied, `visitante não acede: ${sql.slice(14, 50)}`)
+}
+ok(!!(await errOf(`select public.admin_set_eligible($1, '[]'::jsonb)`, [P])), 'visitante não muda as pessoas')
+await asUser(otherId)
+ok(!!(await errOf(`select * from public.admin_list_categories()`)), 'utilizador sem ser admin é recusado')
+
+// antes e durante a 1ª fase: nem a "Apenas 2ª fase" nem o prémio secreto existem para o público
+await asAnon('10.20.0.2')
+st = await val(`select public.get_public_state()`)
+ok(st.categories.length === 6 && !JSON.stringify(st).includes('Prémio Só 2ª Fase') && !JSON.stringify(st).includes('Secreto'), 'antes da 1ª fase: público só vê as "Todas as fases"')
+await asSuper()
+await db.exec(`update public.event_settings set phase1_opens_at = now() - interval '1 hour' where id`)
+await asUser(adminId)
+ok(/tipo da categoria/.test(await errOf(`update public.categories set kind = 'all' where id = $1`, [P])), 'com a 1ª fase aberta, o tipo fica fechado')
+ok(!(await errOf(`update public.categories set secret_winner = 'Maria Da Silva' where id = $1`, [S])), 'o vencedor secreto pode ser mudado durante a votação')
+r = await val(`select public.admin_set_eligible($1, $2::jsonb)`, [P, ids(10, 17)])
+ok(r.ok === true, 'as pessoas da "Apenas 2ª fase" podem ser mudadas durante a 1ª fase')
+await asAnon('10.20.0.3')
+st = await val(`select public.get_public_state()`)
+ok(
+  st.phase === 'phase1' && st.categories.length === 6 && st.categories.every((c) => c.kind === 'all') && !JSON.stringify(st).includes('Maria'),
+  'na 1ª fase: público só vê as "Todas as fases" (nada do prémio secreto)',
+)
+const allCats = st.categories.map((c) => c.id)
+s = await val(`select public.start_voting_session('1011')`)
+const b1 = (list) => JSON.stringify(list.map((c, i) => ({ category_id: c, candidate_id: cands[i].id })))
+r = await val(`select public.submit_ballot($1, $2::jsonb)`, [s.token, b1([...allCats.slice(0, 5), P])])
+ok(r.ok === false && r.error === 'invalid_ballot', '1ª fase: voto na "Apenas 2ª fase" é recusado')
+r = await val(`select public.submit_ballot($1, $2::jsonb)`, [s.token, b1([...allCats, P])])
+ok(r.ok === false && r.error === 'invalid_ballot', '1ª fase: boletim com categoria a mais é recusado')
+r = await val(`select public.submit_ballot($1, $2::jsonb)`, [s.token, b1([...allCats.slice(0, 5), S])])
+ok(r.ok === false && r.error === 'invalid_ballot', '1ª fase: voto no prémio secreto é recusado')
+r = await val(`select public.submit_ballot($1, $2::jsonb)`, [s.token, b1(allCats)])
+ok(r.ok === true, '1ª fase: boletim só com as "Todas as fases" é aceite')
+ok((await val(`select public.get_public_results()`)).published === false, 'resultados continuam privados')
+
+// fecho da 1ª fase: a "Apenas 2ª fase" aparece (em último), o secreto continua escondido
+await asSuper()
+for (const c of allCats) for (let k = 0; k < 6; k++) await db.query(`insert into public.vote_tallies values (1, $1, $2, $3) on conflict do nothing`, [c, cands[k].id, 30 - k])
+await db.exec(`update public.event_settings set phase1_closes_at = now() - interval '2 minutes', phase2_opens_at = now() - interval '1 minute' where id`)
+await asAnon('10.20.0.4')
+st = await val(`select public.get_public_state()`)
+ok(
+  st.phase === 'counting' && st.categories.length === 7 && st.categories[6].id === P && st.categories[6].kind === 'phase2' && !JSON.stringify(st).includes('Secreto'),
+  'depois do fecho da 1ª fase: a "Apenas 2ª fase" aparece em último; o secreto não',
+)
+await asUser(adminId)
+const prp = (await db.query(`select * from public.admin_finalist_proposal()`)).rows
+ok(!prp.some((p) => p.category_id === P || p.category_id === S), 'a proposta de finalistas só tem as "Todas as fases"')
+const selK = {}
+for (const c of allCats) selK[c] = prp.filter((p) => p.category_id === c).slice(0, 5).map((p) => p.candidate_id)
+// com só 1 pessoa ativa na "Apenas 2ª fase", não aprova
+r = await val(`select public.admin_set_eligible($1, $2::jsonb)`, [P, ids(10, 12)])
+await db.query(`update public.candidates set active = false where id = $1`, [cands[11].id])
+r = await val(`select public.admin_set_finalists($1::jsonb)`, [JSON.stringify(selK)])
+ok(r.ok === false && /apenas 2ª fase/.test(r.error), 'não aprova com menos de 2 pessoas ativas na "Apenas 2ª fase"')
+await db.query(`update public.candidates set active = true where id = $1`, [cands[11].id])
+r = await val(`select public.admin_set_eligible($1, $2::jsonb)`, [P, ids(10, 17)])
+await db.query(`update public.candidates set active = false where id = $1`, [cands[16].id])
+r = await val(`select public.admin_set_finalists($1::jsonb)`, [JSON.stringify(selK)])
+ok(r.ok === true, 'aprovação: as "Todas as fases" pela seleção e a "Apenas 2ª fase" pelas pessoas escolhidas')
+await db.query(`update public.candidates set active = true where id = $1`, [cands[16].id])
+const finP = (await db.query(`select candidate_id from public.finalists where category_id = $1`, [P])).rows.map((x) => x.candidate_id).sort()
+ok(JSON.stringify(finP) === JSON.stringify(cands.slice(10, 16).map((x) => x.id).sort()), 'finalistas da "Apenas 2ª fase" = as 6 pessoas ativas (a desativada fica de fora)')
+ok((await val(`select count(*)::int from public.finalists where category_id = $1`, [S])) === 0, 'o prémio secreto não tem finalistas')
+
+// depois da aprovação: a lista fecha e não se criam novas "Apenas 2ª fase"
+r = await val(`select public.admin_set_eligible($1, $2::jsonb)`, [P, ids(0, 3)])
+ok(r.ok === false && /já foram aprovados/.test(r.error), 'depois da aprovação, as pessoas da "Apenas 2ª fase" ficam fechadas')
+ok(
+  /já foram aprovados/.test(await errOf(`insert into public.categories (slug, name, kind) values ('tarde', 'Prémio Tarde', 'phase2')`)),
+  'depois da aprovação, não se cria uma "Apenas 2ª fase"',
+)
+ok(
+  /não tem finalistas/.test(await errOf(`update public.categories set active = true where id = $1`, [cx])),
+  'depois da aprovação, uma categoria sem finalistas não pode ser ativada (partiria o voto na 2ª fase)',
+)
+ok(!(await errOf(`update public.categories set active = false where id = $1`, [P])), 'a "Apenas 2ª fase" pode ser desativada como as outras')
+ok(!(await errOf(`update public.categories set active = true where id = $1`, [P])), 'e voltar a ser ativada (tem finalistas)')
+
+// 2ª fase: a "Apenas 2ª fase" entra no boletim; o secreto nunca
+await asAnon('10.20.0.5')
+st = await val(`select public.get_public_state()`)
+ok(st.phase === 'phase2' && st.categories.length === 7 && st.categories[6].id === P, `2ª fase aberta com 7 categorias (${st.phase})`)
+s = await val(`select public.start_voting_session('1012')`)
+ok(s.ok === true && s.finalists.filter((f) => f.category_id === P).length === 6, 'na 2ª fase aparecem as 6 pessoas da "Apenas 2ª fase"')
+const b2 = (withP, extra) =>
+  JSON.stringify([
+    ...allCats.map((c) => ({ category_id: c, candidate_id: selK[c][0] })),
+    ...(withP ? [{ category_id: P, candidate_id: finP[0] }] : []),
+    ...(extra ? [extra] : []),
+  ])
+r = await val(`select public.submit_ballot($1, $2::jsonb)`, [s.token, b2(false)])
+ok(r.ok === false && r.error === 'invalid_ballot', '2ª fase: boletim sem a "Apenas 2ª fase" é recusado')
+r = await val(`select public.submit_ballot($1, $2::jsonb)`, [s.token, b2(true, { category_id: S, candidate_id: cands[0].id })])
+ok(r.ok === false && r.error === 'invalid_ballot', '2ª fase: voto no prémio secreto é recusado')
+r = await val(`select public.submit_ballot($1, $2::jsonb)`, [s.token, JSON.stringify([...JSON.parse(b2(false)), { category_id: P, candidate_id: cands[0].id }])])
+ok(r.ok === false && r.error === 'invalid_ballot', '2ª fase: voto em quem não foi escolhido na "Apenas 2ª fase" é recusado')
+r = await val(`select public.submit_ballot($1, $2::jsonb)`, [s.token, b2(true)])
+ok(r.ok === true, '2ª fase: boletim com as 7 categorias é aceite')
+
+// gala e publicação: o prémio secreto precisa do vencedor escrito
+await asSuper()
+await db.exec(`update public.event_settings set phase2_closes_at = now() - interval '1 minute', gala_at = now() where id`)
+await asUser(adminId)
+const S2 = await val(`insert into public.categories (slug, name, sort_order, kind) values ('secreto-2', 'Segundo Secreto', 2, 'secret') returning id`)
+let ovS = await val(`select public.admin_overview()`)
+ok(JSON.stringify(ovS.secret_missing) === JSON.stringify([S2]) && ovS.winner_ties.length === 0, 'painel sinaliza o prémio secreto sem vencedor escrito')
+const pubErr = await errOf(`update public.event_settings set results_published = true where id`)
+ok(/prémio secreto/.test(pubErr ?? ''), 'não deixa publicar com um prémio secreto sem vencedor')
+await db.query(`update public.categories set secret_winner = 'João Convidado' where id = $1`, [S2])
+ovS = await val(`select public.admin_overview()`)
+ok(ovS.secret_missing.length === 0, 'com o vencedor escrito, o aviso desaparece')
+ok(!(await errOf(`update public.event_settings set results_published = true where id`)), 'publica com os prémios secretos preenchidos')
+await asAnon('10.20.0.6')
+const pubK = await val(`select public.get_public_results()`)
+const kinds = pubK.categories.map((c) => c.kind).join(',')
+ok(kinds === 'all,all,all,all,all,all,phase2,secret,secret', `resultados pela ordem dos grupos (${kinds})`)
+const sk = pubK.categories.filter((c) => c.kind === 'secret')
+ok(
+  sk[0].finalists.length === 1 && sk[0].finalists[0].name === 'Maria Da Silva' && sk[0].finalists[0].winner && sk[1].finalists[0].name === 'João Convidado',
+  'prémios secretos aparecem nos prémios com o vencedor escrito à mão',
+)
+ok(pubK.categories.find((c) => c.kind === 'phase2').finalists.filter((f) => f.winner).length === 1, 'a "Apenas 2ª fase" tem o seu vencedor')
+st = await val(`select public.get_public_state()`)
+ok(st.categories.length === 9 && st.categories[8].kind === 'secret', 'depois de publicar, os prémios secretos aparecem também nos prémios da noite')
+await asUser(adminId)
+ok(/publicados/.test(await errOf(`update public.categories set secret_winner = 'Outra Pessoa' where id = $1`, [S])), 'depois de publicar, o prémio secreto fica fechado')
+ok(/publicados/.test(await errOf(`delete from public.categories where id = $1`, [S])), 'depois de publicar, o prémio secreto não pode ser apagado')
+ok(!(await errOf(`update public.categories set sort_order = 3 where id = $1`, [S])), 'mudar a ordem continua a ser possível')
+await asSuper()
+await db.exec(`update public.event_settings set results_published = false where id`)
+
 console.log(failures ? `\n${failures} FALHA(S)` : '\nTodos os testes passaram.')
 process.exit(failures ? 1 : 0)

@@ -1,6 +1,6 @@
-import { AnimatePresence, motion } from 'framer-motion'
+import { AnimatePresence, motion, useIsPresent } from 'framer-motion'
 import { ChevronLeft, ChevronRight, Crown, Maximize, Minimize, Volume2, VolumeX, X } from 'lucide-react'
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { useApi, usePath } from '../api/ApiContext'
 import type { Category, ResultRow } from '../api/types'
@@ -9,6 +9,7 @@ import { CategoryMedallion } from '../components/ui/CategoryIcon'
 import { CvpBrand } from '../components/ui/CvpBrand'
 import { FullPageLoader } from '../components/ui/Feedback'
 import { Trophy } from '../components/ui/Trophy'
+import { byCategoryOrder, kindOf } from '../lib/categories'
 import { celebrate } from '../lib/celebrate'
 import { cn } from '../lib/cn'
 import { formatPct, initials, pct, plural } from '../lib/format'
@@ -19,6 +20,8 @@ interface CategoryShow {
   nominees: ResultRow[]
   winners: ResultRow[]
   total: number
+  /** prémio secreto: sem nomeados nem gráfico, só o ecrã da categoria e o vencedor */
+  secret?: boolean
 }
 
 type Slide =
@@ -36,6 +39,7 @@ const TEASE_MS = 7500
  * MODO GALA — apresentação em ecrã completo para a cerimónia final.
  * Por categoria: categoria → nomeados → gráfico a brincar (rufar de tambores) → prato!
  * o gráfico para nos valores reais → nome do vencedor em grande.
+ * Prémios secretos (sempre no fim): categoria → nome do vencedor em grande.
  * Teclas: → / Espaço avançar · ← recuar · F ecrã completo · S som · Esc sair
  */
 export function GalaPage() {
@@ -49,7 +53,7 @@ export function GalaPage() {
   const [shows, setShows] = useState<CategoryShow[] | null>(null)
   const [preview, setPreview] = useState(false)
   const [blocked, setBlocked] = useState<string | null>(null)
-  const [blockedGoTo, setBlockedGoTo] = useState<'definicoes' | 'resultados'>('definicoes')
+  const [blockedGoTo, setBlockedGoTo] = useState<'definicoes' | 'resultados' | 'categorias'>('definicoes')
   const [i, setI] = useState(0)
   const [sound, setSound] = useState(true)
   const [fs, setFs] = useState(false)
@@ -60,7 +64,8 @@ export function GalaPage() {
   useEffect(() => {
     ;(async () => {
       const [cats, overview] = await Promise.all([api.admin.listCategories(), api.admin.overview()])
-      const active = cats.filter((c) => c.active !== false).sort((a, b) => a.sort_order - b.sort_order)
+      // ordem por grupos: Todas as fases, Apenas 2ª fase e, no fim, os prémios secretos
+      const active = cats.filter((c) => c.active !== false).sort(byCategoryOrder)
       const vis = overview.results_visible
       // anonimato: os resultados de uma fase só existem para o painel depois de a fase fechar
       if (!vis.phase2 && overview.settings.finalists_confirmed && (overview.phase === 'phase2' || overview.phase === 'paused')) {
@@ -76,6 +81,15 @@ export function GalaPage() {
         setShows([])
         return
       }
+      const secretMissing = overview.secret_missing ?? []
+      if (secretMissing.length > 0) {
+        setBlocked(
+          `Falta escrever o vencedor ${secretMissing.length === 1 ? 'de 1 prémio secreto' : `de ${secretMissing.length} prémios secretos`}. Escrevam-no em Categorias para poder apresentar a gala.`,
+        )
+        setBlockedGoTo('categorias')
+        setShows([])
+        return
+      }
       let rows = vis.phase2 ? await api.admin.results(2) : []
       let isPreview = false
       if (rows.length === 0) {
@@ -87,20 +101,38 @@ export function GalaPage() {
         // ensaio antes de haver resultados da 2ª fase: usa os finalistas aprovados (com os
         // votos da 1ª fase); se ainda não foram aprovados, os N mais votados da 1ª fase
         isPreview = true
-        const r1 = await api.admin.results(1)
+        const [r1, cands] = await Promise.all([api.admin.results(1), api.admin.listCandidates()])
         const approved = r1.filter((r) => r.is_finalist)
         rows = active.flatMap((c) =>
-          approved.length > 0
-            ? approved.filter((r) => r.category_id === c.id)
-            : r1
-                .filter((r) => r.category_id === c.id)
-                .sort((a, b) => b.votes - a.votes)
-                .slice(0, overview.settings.finalists_per_category),
+          // "Apenas 2ª fase": não tem votos da 1ª fase; o ensaio usa as pessoas escolhidas
+          kindOf(c) === 'phase2'
+            ? (c.eligible ?? []).flatMap((id) => {
+                const cand = cands.find((x) => x.id === id && x.active)
+                return cand ? [{ category_id: c.id, candidate_id: id, candidate_name: cand.name, votes: 0, is_finalist: true }] : []
+              })
+            : approved.length > 0
+              ? approved.filter((r) => r.category_id === c.id)
+              : r1
+                  .filter((r) => r.category_id === c.id)
+                  .sort((a, b) => b.votes - a.votes)
+                  .slice(0, overview.settings.finalists_per_category),
         )
       }
       setPreview(isPreview)
       setShows(
         active.map((category) => {
+          // prémio secreto: o vencedor escrito à mão, sem votos
+          if (kindOf(category) === 'secret') {
+            const winner: ResultRow = {
+              category_id: category.id,
+              candidate_id: category.id,
+              candidate_name: category.secret_winner ?? '',
+              votes: 0,
+              is_finalist: true,
+              is_winner: true,
+            }
+            return { category, nominees: [], winners: category.secret_winner ? [winner] : [], total: 0, secret: true }
+          }
           const list = rows.filter((r) => r.category_id === category.id)
           const max = Math.max(0, ...list.map((r) => r.votes))
           return {
@@ -120,12 +152,11 @@ export function GalaPage() {
     if (!shows) return []
     return [
       { kind: 'intro' },
-      ...shows.flatMap((_, ci) => [
-        { kind: 'category', ci } as Slide,
-        { kind: 'nominees', ci } as Slide,
-        { kind: 'race', ci } as Slide,
-        { kind: 'winner', ci } as Slide,
-      ]),
+      ...shows.flatMap((s, ci) =>
+        s.secret
+          ? [{ kind: 'category', ci } as Slide, { kind: 'winner', ci } as Slide]
+          : [{ kind: 'category', ci } as Slide, { kind: 'nominees', ci } as Slide, { kind: 'race', ci } as Slide, { kind: 'winner', ci } as Slide],
+      ),
       { kind: 'finale' },
     ]
   }, [shows])
@@ -137,8 +168,12 @@ export function GalaPage() {
   // ---------------------------------------------------- efeitos por slide --
   // nenhum ecrã avança sozinho: quem apresenta passa com a seta ou o comando.
   // Ao mudar de ecrã, o som do ecrã anterior para logo (nunca há sons por cima de sons).
-  useEffect(() => {
+  // Efeito de "layout": corre antes dos efeitos do ecrã que entra, para nunca cortar o
+  // som que esse ecrã acabou de começar (o rufar do gráfico).
+  useLayoutEffect(() => {
     stopAllSounds()
+  }, [i])
+  useEffect(() => {
     if (!slide) return
     let timer = 0
     if (slide.kind === 'winner') {
@@ -203,7 +238,7 @@ export function GalaPage() {
           <div className="mt-8 flex flex-wrap justify-center gap-3">
             {!fromHome && (
               <button onClick={() => navigate(path(`/admin/${blockedGoTo}`))} className="btn-gold">
-                {blockedGoTo === 'resultados' ? 'Ir para Resultados' : 'Ir para Datas e fases'}
+                {blockedGoTo === 'resultados' ? 'Ir para Resultados' : blockedGoTo === 'categorias' ? 'Ir para Categorias' : 'Ir para Datas e fases'}
               </button>
             )}
             <button onClick={() => navigate(exitTo)} className={fromHome ? 'btn-gold' : 'btn-ghost'}>
@@ -238,17 +273,23 @@ export function GalaPage() {
         </div>
       )}
 
-      <AnimatePresence mode="wait">
+      {/* Sem fila de espera entre ecrãs: o ecrã que sai desvanece e o novo entra logo a seguir
+          (atraso de 0,3 s). Com mode="wait", vários toques rápidos no comando encravavam a
+          animação e o ecrã ficava preso num ecrã antigo. */}
+      <AnimatePresence initial={false}>
         <motion.div
           key={i}
+          data-slide={i}
           className="absolute inset-0 flex items-center justify-center px-[4vw] pb-[9vh] pt-[8vh]"
           initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          exit={{ opacity: 0, transition: { duration: 0.35 } }}
-          transition={{ duration: 0.6 }}
+          animate={{ opacity: 1, transition: { duration: 0.6, delay: 0.3 } }}
+          exit={{ opacity: 0, transition: { duration: 0.3 } }}
         >
           {slide?.kind === 'intro' && <IntroSlide />}
-          {slide?.kind === 'category' && show && <CategorySlide show={show} index={slide.ci} total={shows.length} />}
+          {slide?.kind === 'category' && show && (
+            // a contagem "Categoria X de Y" só conta as votadas: os prémios secretos são surpresa
+            <CategorySlide show={show} index={slide.ci} total={shows.filter((s) => !s.secret).length} />
+          )}
           {slide?.kind === 'nominees' && show && <NomineesSlide show={show} />}
           {slide?.kind === 'race' && show && <RaceSlide show={show} sound={sound} />}
           {slide?.kind === 'winner' && show && <WinnerSlide show={show} />}
@@ -350,7 +391,7 @@ function CategorySlide({ show, index, total }: { show: CategoryShow; index: numb
           transition={{ delay: 0.3 }}
           className="eyebrow text-[length:min(1.8vw,2.8vh)]"
         >
-          Categoria {index + 1} de {total}
+          {show.secret ? 'Prémio especial' : `Categoria ${index + 1} de ${total}`}
         </motion.div>
         <motion.h2
           initial={{ opacity: 0, y: 30, letterSpacing: '0.2em' }}
@@ -438,9 +479,18 @@ function RaceSlide({ show, sound }: { show: CategoryShow; sound: boolean }) {
   const maxVotes = Math.max(0, ...nominees.map((r) => r.votes))
   const [heights, setHeights] = useState<number[]>(() => nominees.map(() => 6))
   const [settled, setSettled] = useState(false)
+  // deixa de ser o ecrã atual assim que o apresentador avança (ainda a desvanecer)
+  const isPresent = useIsPresent()
+  const timersRef = useRef<number[]>([])
+  useEffect(() => {
+    if (isPresent) return
+    // o prato e as barras já não acontecem depois de avançar
+    timersRef.current.forEach((id) => window.clearTimeout(id))
+    timersRef.current = []
+  }, [isPresent])
 
   useEffect(() => {
-    const timers: number[] = []
+    const timers = timersRef.current
     const at = (ms: number, fn: () => void) => timers.push(window.setTimeout(fn, ms))
     const n = nominees.length
     const finalHeights = nominees.map((r) => (maxVotes > 0 ? Math.max(3, (r.votes / maxVotes) * 100) : 3))
@@ -471,9 +521,10 @@ function RaceSlide({ show, sound }: { show: CategoryShow; sound: boolean }) {
       if (sound) crash()
     })
     // fica parado nos valores reais até o apresentador avançar
+    // (o som é parado pela página ao mudar de ecrã; aqui só se cancelam os temporizadores)
     return () => {
-      timers.forEach((id) => window.clearTimeout(id))
-      stopAllSounds()
+      timersRef.current.forEach((id) => window.clearTimeout(id))
+      timersRef.current = []
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])

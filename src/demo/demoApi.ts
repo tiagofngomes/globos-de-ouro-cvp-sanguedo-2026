@@ -3,6 +3,7 @@
  * Tudo vive no navegador (localStorage); nada é enviado para o Supabase.
  * Reproduz as mesmas regras do servidor para que a experiência seja fiel.
  */
+import { byCategoryOrder, ELIGIBLE_MAX, ELIGIBLE_MIN, kindOf, votedInPhase } from '../lib/categories'
 import { isGalaDayReached } from '../lib/format'
 import { normalizeMemberNumber, normalizeText } from '../lib/normalize'
 import type {
@@ -163,11 +164,14 @@ export function setDemoPhase(phase: Phase) {
     const proposal = computeProposal()
     const n = state.settings.finalists_per_category
     state.finalists = {}
-    for (const cat of activeCategories()) {
-      state.finalists[cat.id] = proposal
-        .filter((p) => p.category_id === cat.id && p.status !== 'out')
-        .slice(0, Math.min(8, Math.max(2, n)))
-        .map((p) => p.candidate_id)
+    for (const cat of votingCategories(2)) {
+      state.finalists[cat.id] =
+        kindOf(cat) === 'phase2'
+          ? eligibleActive(cat)
+          : proposal
+              .filter((p) => p.category_id === cat.id && p.status !== 'out')
+              .slice(0, Math.min(8, Math.max(2, n)))
+              .map((p) => p.candidate_id)
     }
     state.settings.finalists_confirmed = true
     state.settings.finalists_confirmed_at = new Date().toISOString()
@@ -183,7 +187,24 @@ export const DEMO_HINT = `Na demonstração, use um código entre ${DEMO_MEMBER_
 // ------------------------------------------------------------- helpers -----
 
 const delay = (ms = 350) => new Promise((r) => setTimeout(r, ms + Math.random() * 200))
-const activeCategories = () => state.categories.filter((c) => c.active !== false).sort((a, b) => a.sort_order - b.sort_order)
+const activeCategories = () => state.categories.filter((c) => c.active !== false).sort(byCategoryOrder)
+/** categorias votadas nesta fase (1ª: só "Todas as fases"; 2ª: também "Apenas 2ª fase") */
+const votingCategories = (phase: 1 | 2) => activeCategories().filter((c) => votedInPhase(c, phase))
+const isActiveCandidate = (id: string) => state.candidates.some((c) => c.id === id && c.active)
+/** pessoas ativas escolhidas numa categoria "Apenas 2ª fase" */
+const eligibleActive = (c: Category) => (c.eligible ?? []).filter(isActiveCandidate)
+/** prémios secretos ativos ainda sem o vencedor escrito */
+const secretMissing = () => activeCategories().filter((c) => kindOf(c) === 'secret' && !c.secret_winner).map((c) => c.id)
+/** como no servidor: o que o público vê de uma categoria (nunca o vencedor secreto nem as pessoas escolhidas) */
+const publicCategory = ({ id, slug, name, description, icon, sort_order, kind }: Category): Category => ({
+  id,
+  slug,
+  name,
+  description,
+  icon,
+  sort_order,
+  kind: kind ?? 'all',
+})
 const candidateName = (id: string) => state.candidates.find((c) => c.id === id)?.name ?? 'Desconhecido'
 
 /** Como no servidor: os resultados de uma fase só ficam visíveis depois de essa fase fechar. */
@@ -238,7 +259,7 @@ function simulatePhase2() {
 function computeProposal(): ProposalRow[] {
   const n = state.settings.finalists_per_category
   const rows: ProposalRow[] = []
-  for (const cat of activeCategories()) {
+  for (const cat of votingCategories(1)) {
     const ranked = state.candidates
       .map((c) => ({ c, v: state.tallies[`1|${cat.id}|${c.id}`] ?? 0 }))
       .filter((x) => x.v > 0)
@@ -286,7 +307,10 @@ export function createDemoApi(): VotingApi {
         phase2_closes_at: s.phase2_closes_at,
         gala_at: s.gala_at,
         finalists_per_category: s.finalists_per_category,
-        categories: activeCategories(),
+        // como no servidor: "Apenas 2ª fase" só depois do fecho da 1ª fase; prémios secretos só depois de publicar
+        categories: activeCategories()
+          .filter((c) => kindOf(c) === 'all' || (kindOf(c) === 'phase2' && resultsVisible(1)) || (kindOf(c) === 'secret' && state.phase === 'results'))
+          .map(publicCategory),
         codes_numeric: state.members.filter((m) => m.active).every((m) => /^[0-9]+$/.test(m.member_number)),
       }
     },
@@ -323,8 +347,13 @@ export function createDemoApi(): VotingApi {
       if (!session || session.expires < Date.now()) return { ok: false, error: 'session_expired' }
       const phaseN = state.phase === 'phase1' ? 1 : state.phase === 'phase2' ? 2 : null
       if (phaseN !== session.phase) return { ok: false, error: 'voting_closed' }
-      const cats = activeCategories()
-      if (votes.length !== cats.length || new Set(votes.map((v) => v.category_id)).size !== cats.length) {
+      const cats = votingCategories(phaseN)
+      if (
+        votes.length !== cats.length ||
+        new Set(votes.map((v) => v.category_id)).size !== cats.length ||
+        votes.some((v) => !cats.some((c) => c.id === v.category_id)) ||
+        (phaseN === 2 && votes.some((v) => !(state.finalists[v.category_id] ?? []).includes(v.candidate_id)))
+      ) {
         return { ok: false, error: 'invalid_ballot' }
       }
       if (state.voted[session.member_id]?.includes(phaseN)) return { ok: false, error: 'already_voted' }
@@ -344,17 +373,15 @@ export function createDemoApi(): VotingApi {
       return {
         published: true,
         categories: activeCategories().map((cat) => {
+          const base = { category_id: cat.id, name: cat.name, icon: cat.icon, description: cat.description, kind: kindOf(cat) }
+          // prémio secreto: só o vencedor escrito à mão
+          if (kindOf(cat) === 'secret')
+            return { ...base, finalists: cat.secret_winner ? [{ candidate_id: cat.id, name: cat.secret_winner, winner: true }] : [] }
           const fins = (state.finalists[cat.id] ?? [])
             .map((id) => ({ id, v: state.tallies[`2|${cat.id}|${id}`] ?? 0 }))
             .sort((a, b) => b.v - a.v || candidateName(a.id).localeCompare(candidateName(b.id), 'pt'))
-          const max = fins[0]?.v ?? 0
-          return {
-            category_id: cat.id,
-            name: cat.name,
-            icon: cat.icon,
-            description: cat.description,
-            finalists: fins.map((f) => ({ candidate_id: f.id, name: candidateName(f.id), winner: f.v > 0 && f.v === max })),
-          }
+          const winners = categoryWinners(cat.id).winners
+          return { ...base, finalists: fins.map((f) => ({ candidate_id: f.id, name: candidateName(f.id), winner: winners.includes(f.id) })) }
         }),
       }
     },
@@ -393,6 +420,7 @@ export function createDemoApi(): VotingApi {
           finalists_count: Object.values(state.finalists).flat().length,
           results_visible: { phase1: resultsVisible(1), phase2: resultsVisible(2) },
           winner_ties: resultsVisible(2) ? undecidedTies() : [],
+          secret_missing: secretMissing(),
           ties: state.settings.finalists_confirmed || !resultsVisible(1) ? [] : tiesList(),
         }
       },
@@ -401,7 +429,7 @@ export function createDemoApi(): VotingApi {
         await delay(150)
         if (!resultsVisible(phase)) return []
         const rows: ResultRow[] = []
-        for (const cat of activeCategories()) {
+        for (const cat of votingCategories(phase)) {
           const fins = state.finalists[cat.id] ?? []
           const ids = phase === 1 ? state.candidates.map((c) => c.id) : fins
           for (const id of ids) {
@@ -429,13 +457,21 @@ export function createDemoApi(): VotingApi {
         await delay(300)
         if (hasPhase2Votes()) return { ok: false, error: 'A 2ª fase já tem votos: não é possível alterar os finalistas.' }
         if (state.phase === 'phase1' || state.phase === 'pre_voting') return { ok: false, error: 'A 1ª fase ainda está aberta.' }
-        for (const c of activeCategories()) {
+        for (const c of votingCategories(2)) {
+          if (kindOf(c) === 'phase2') {
+            const k = eligibleActive(c).length
+            if (k < ELIGIBLE_MIN || k > ELIGIBLE_MAX)
+              return { ok: false, error: `A categoria "${c.name}" (apenas 2ª fase) precisa de 2 a 8 pessoas ativas escolhidas em Categorias.` }
+            continue
+          }
           const voted = state.candidates.filter((x) => (state.tallies[`1|${c.id}|${x.id}`] ?? 0) > 0).length
           const sel = new Set(selection[c.id] ?? []).size
           if (voted === 0) return { ok: false, error: `A categoria "${c.name}" não teve votos na 1ª fase. Desative-a em Categorias para poder aprovar.` }
           if (sel < Math.min(2, voted) || sel > 8) return { ok: false, error: 'Cada categoria tem de ter entre 2 e 8 finalistas.' }
         }
-        state.finalists = selection
+        // "Todas as fases": a seleção; "Apenas 2ª fase": as pessoas escolhidas (ativas)
+        state.finalists = {}
+        for (const c of votingCategories(2)) state.finalists[c.id] = kindOf(c) === 'phase2' ? eligibleActive(c) : [...new Set(selection[c.id] ?? [])]
         state.winners = {}
         state.settings.finalists_confirmed = true
         state.settings.finalists_confirmed_at = new Date().toISOString()
@@ -481,6 +517,9 @@ export function createDemoApi(): VotingApi {
         // como no servidor: não se publica com empates no 1.º lugar por decidir
         if (patch.results_published && !state.settings.results_published && undecidedTies().length)
           return { ok: false, error: 'Há empates no 1.º lugar por decidir. Escolham o vencedor em Resultados (2ª fase) antes de publicar.' }
+        // como no servidor: não se publica com prémios secretos sem o vencedor escrito
+        if (patch.results_published && !state.settings.results_published && secretMissing().length)
+          return { ok: false, error: 'Falta escrever o vencedor de um prémio secreto. Escrevam-no em Categorias antes de publicar.' }
         // como no servidor: publicar só a partir do dia da gala
         if (patch.results_published && !state.settings.results_published && !isGalaDayReached(next.gala_at, Date.now()))
           return { ok: false, error: 'Os resultados só podem ser publicados a partir do dia da gala.' }
@@ -504,7 +543,22 @@ export function createDemoApi(): VotingApi {
       },
 
       async listCategories() {
-        return [...state.categories].sort((a, b) => a.sort_order - b.sort_order)
+        return [...state.categories]
+          .sort(byCategoryOrder)
+          .map((c) => ({ ...c, kind: kindOf(c), eligible: c.eligible ?? [], secret_winner: c.secret_winner ?? null }))
+      },
+      async setEligible(categoryId, candidateIds) {
+        await delay(200)
+        const cat = state.categories.find((c) => c.id === categoryId)
+        if (!cat || kindOf(cat) !== 'phase2') return { ok: false, error: 'Esta categoria não é "Apenas 2ª fase".' }
+        if (state.settings.finalists_confirmed)
+          return { ok: false, error: 'Os finalistas já foram aprovados: as pessoas desta categoria já não podem ser mudadas.' }
+        const ids = [...new Set(candidateIds)]
+        if (ids.length < ELIGIBLE_MIN || ids.length > ELIGIBLE_MAX) return { ok: false, error: 'Escolham entre 2 e 8 pessoas.' }
+        if (!ids.every(isActiveCandidate)) return { ok: false, error: 'Só podem ser escolhidas pessoas ativas da lista de candidatos.' }
+        state.categories = state.categories.map((c) => (c.id === categoryId ? { ...c, eligible: ids } : c))
+        save()
+        return { ok: true }
       },
       async reorderCategories(ids) {
         state.categories = state.categories.map((c) => (ids.includes(c.id) ? { ...c, sort_order: ids.indexOf(c.id) + 1 } : c))
@@ -512,23 +566,68 @@ export function createDemoApi(): VotingApi {
         return { ok: true }
       },
       async saveCategory(c) {
+        // como no servidor (guard_categories): o que pode partir a votação fica bloqueado
+        const s = state.settings
+        const published = s.results_published
+        const winnerOf = (kind: string, w: string | null | undefined) => (kind === 'secret' ? (w ?? '').trim().replace(/\s+/g, ' ') || null : null)
         if (c.id) {
-          state.categories = state.categories.map((x) => (x.id === c.id ? { ...x, ...c } : x))
-        } else {
-          state.categories.push({
-            id: `cat-${Date.now()}`,
-            slug: normalizeText(c.name).replace(/\s+/g, '-'),
+          const old = state.categories.find((x) => x.id === c.id)
+          if (!old) return { ok: false, error: 'Categoria não encontrada.' }
+          const oldKind = kindOf(old)
+          const kind = c.kind ?? oldKind
+          const next: Category = {
+            ...old,
             name: c.name,
-            description: c.description ?? '',
-            icon: c.icon ?? 'trophy',
-            sort_order: c.sort_order ?? state.categories.length + 1,
-            active: c.active ?? true,
-          })
+            description: c.description ?? old.description,
+            icon: c.icon ?? old.icon,
+            sort_order: c.sort_order ?? old.sort_order,
+            active: c.active ?? old.active ?? true,
+            kind,
+            secret_winner: winnerOf(kind, c.secret_winner !== undefined ? c.secret_winner : old.secret_winner),
+            eligible: kind === 'phase2' ? (old.eligible ?? []) : [],
+          }
+          if (kind !== oldKind && state.phase !== 'pre_voting') return { ok: false, error: 'O tipo da categoria só pode ser mudado antes de a 1ª fase abrir.' }
+          const changed =
+            next.name !== old.name ||
+            next.description !== old.description ||
+            next.icon !== old.icon ||
+            next.active !== (old.active ?? true) ||
+            (next.secret_winner ?? null) !== (old.secret_winner ?? null) ||
+            kind !== oldKind
+          if ((oldKind === 'secret' || kind === 'secret') && published && changed)
+            return { ok: false, error: 'Os resultados já foram publicados: os prémios secretos já não podem ser alterados.' }
+          if (next.active && old.active === false && kind !== 'secret' && s.finalists_confirmed && !(state.finalists[old.id] ?? []).length)
+            return { ok: false, error: 'Os finalistas já foram aprovados e esta categoria não tem finalistas: não pode ser ativada agora.' }
+          state.categories = state.categories.map((x) => (x.id === c.id ? next : x))
+          save()
+          return { ok: true }
         }
+        const kind = c.kind ?? 'all'
+        if (kind === 'phase2' && s.finalists_confirmed)
+          return { ok: false, error: 'Os finalistas já foram aprovados: já não é possível criar categorias "Apenas 2ª fase".' }
+        if (kind === 'secret' && published) return { ok: false, error: 'Os resultados já foram publicados: já não é possível criar prémios secretos.' }
+        const id = `cat-${Date.now()}`
+        state.categories.push({
+          id,
+          slug: normalizeText(c.name).replace(/\s+/g, '-'),
+          name: c.name,
+          description: c.description ?? '',
+          icon: c.icon ?? 'trophy',
+          sort_order: c.sort_order ?? state.categories.length + 1,
+          active: c.active ?? true,
+          kind,
+          secret_winner: winnerOf(kind, c.secret_winner),
+          eligible: [],
+        })
         save()
-        return { ok: true }
+        return { ok: true, id }
       },
       async deleteCategory(id) {
+        const cat = state.categories.find((c) => c.id === id)
+        if (cat && kindOf(cat) === 'secret' && state.settings.results_published)
+          return { ok: false, error: 'Os resultados já foram publicados: os prémios secretos já não podem ser alterados.' }
+        // como no servidor: categoria com finalistas não pode ser apagada
+        if ((state.finalists[id] ?? []).length) return { ok: false, error: 'Não é possível apagar: existem votos associados. Desative em vez de apagar.' }
         if (Object.keys(state.tallies).some((k) => k.split('|')[1] === id)) {
           return { ok: false, error: 'Não é possível apagar: existem votos associados. Desative em vez de apagar.' }
         }

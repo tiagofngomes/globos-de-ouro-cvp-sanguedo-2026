@@ -238,7 +238,18 @@ function Categories({ categories }: { categories: Category[] }) {
             <div className="absolute -right-10 -top-10 h-32 w-32 rounded-full bg-gold-400/10 blur-2xl transition group-hover:bg-gold-400/25" />
             <div className="absolute right-5 top-5 font-display text-5xl font-bold text-gold-400/10">{String(i + 1).padStart(2, '0')}</div>
             <CategoryMedallion icon={c.icon} />
-            <h3 className="mt-5 font-display text-xl leading-tight text-gold-50">{c.name}</h3>
+            {/* "Apenas 2ª fase" só aparece depois do fecho da 1ª fase; os prémios secretos só depois de publicar */}
+            {c.kind === 'phase2' && (
+              <span className="mt-4 inline-block rounded-full border border-gold-400/40 px-2 py-0.5 text-[9px] font-bold uppercase tracking-widest text-gold-200">
+                Só na 2ª fase
+              </span>
+            )}
+            {c.kind === 'secret' && (
+              <span className="mt-4 inline-block rounded-full border border-gold-400/40 px-2 py-0.5 text-[9px] font-bold uppercase tracking-widest text-gold-200">
+                Prémio especial
+              </span>
+            )}
+            <h3 className={cn('font-display text-xl leading-tight text-gold-50', c.kind === 'phase2' || c.kind === 'secret' ? 'mt-3' : 'mt-5')}>{c.name}</h3>
             <p className="mt-3 text-sm leading-relaxed text-gold-50/60">{c.description}</p>
             <div className="divider-gold mt-5 opacity-40" />
           </motion.article>

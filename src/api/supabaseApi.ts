@@ -144,11 +144,9 @@ export function createSupabaseApi(): VotingApi {
       },
       resetVotes: (phase, confirmation) => rpc<OpResult>('admin_reset_votes', { p_phase: phase, p_confirmation: confirmation }),
 
-      async listCategories() {
-        const { data, error } = await sb().from('categories').select('*').order('sort_order').order('name')
-        if (error) throw new Error(friendly(error))
-        return data as Category[]
-      },
+      // inclui o tipo, o vencedor dos prémios secretos e as pessoas das "Apenas 2ª fase"
+      listCategories: () => rpc<Category[]>('admin_list_categories'),
+      setEligible: (categoryId, candidateIds) => rpcOp('admin_set_eligible', { p_category: categoryId, p_candidates: candidateIds }),
       async reorderCategories(ids) {
         const results = await Promise.all(
           ids.map((id, i) =>
@@ -167,6 +165,9 @@ export function createSupabaseApi(): VotingApi {
           icon: c.icon ?? 'trophy',
           sort_order: c.sort_order ?? 0,
           active: c.active ?? true,
+          // o tipo só é enviado quando é indicado (o servidor recusa mudá-lo depois de a 1ª fase abrir)
+          ...(c.kind ? { kind: c.kind } : {}),
+          ...(c.kind === 'secret' || c.secret_winner !== undefined ? { secret_winner: c.secret_winner ?? null } : {}),
         }
         if (c.id) return op((await sb().from('categories').update(row).eq('id', c.id)).error)
         const slug =
@@ -179,13 +180,12 @@ export function createSupabaseApi(): VotingApi {
             .replace(/(^-|-$)/g, '') +
             '-' +
             Math.random().toString(36).slice(2, 6)
-        return op(
-          (
-            await sb()
-              .from('categories')
-              .insert({ ...row, slug })
-          ).error,
-        )
+        const { data, error } = await sb()
+          .from('categories')
+          .insert({ ...row, slug })
+          .select('id')
+          .single()
+        return error ? op(error) : { ok: true, id: (data as { id: string }).id }
       },
       async deleteCategory(id) {
         return op((await sb().from('categories').delete().eq('id', id)).error)

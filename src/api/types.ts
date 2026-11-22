@@ -8,6 +8,14 @@ export type Phase =
   | 'awaiting_gala' // votações encerradas, à espera da gala
   | 'results' // resultados publicados
 
+/**
+ * Tipo de categoria (o programa sabe o que fazer com cada uma):
+ * - 'all'    Todas as fases (por omissão): votada na 1ª e na 2ª fase.
+ * - 'phase2' Apenas 2ª fase: de 2 a 8 pessoas escolhidas pelos administradores.
+ * - 'secret' Prémio secreto: sem votação; vencedor escrito à mão; só aparece na gala.
+ */
+export type CategoryKind = 'all' | 'phase2' | 'secret'
+
 export interface Category {
   id: string
   slug: string
@@ -16,6 +24,12 @@ export interface Category {
   icon: string
   sort_order: number
   active?: boolean
+  /** sem valor = 'all' (Todas as fases) */
+  kind?: CategoryKind
+  /** só no painel: vencedor escrito à mão de um prémio secreto */
+  secret_winner?: string | null
+  /** só no painel: pessoas escolhidas numa categoria "Apenas 2ª fase" */
+  eligible?: string[]
 }
 
 export interface PublicState {
@@ -71,6 +85,7 @@ export interface PublicResults {
     name: string
     icon: string
     description: string
+    kind?: CategoryKind
     finalists: Array<{ candidate_id: string; name: string; winner: boolean }>
   }>
 }
@@ -105,6 +120,8 @@ export interface AdminOverview {
   results_visible: { phase1: boolean; phase2: boolean }
   /** categorias com empate no 1.º lugar da 2ª fase ainda por decidir */
   winner_ties: string[]
+  /** prémios secretos ativos ainda sem o vencedor escrito (bloqueiam a gala e a publicação) */
+  secret_missing?: string[]
   ties: string[]
 }
 
@@ -153,6 +170,8 @@ export interface ImportResult {
 export interface OpResult {
   ok: boolean
   error?: string
+  /** ao criar: o id do registo novo */
+  id?: string
 }
 
 /** Contrato comum à API real (Supabase) e à API de demonstração. */
@@ -185,6 +204,8 @@ export interface VotingApi {
     deleteCategory(id: string): Promise<OpResult>
     /** grava a ordem das categorias: ids[0] fica em 1.º, ids[1] em 2.º, … */
     reorderCategories(ids: string[]): Promise<OpResult>
+    /** pessoas de uma categoria "Apenas 2ª fase" (de 2 a 8) */
+    setEligible(categoryId: string, candidateIds: string[]): Promise<OpResult>
 
     listCandidates(): Promise<Candidate[]>
     saveCandidate(candidate: { id?: string; name: string; active?: boolean }): Promise<OpResult>

@@ -9,6 +9,7 @@ import { RingStat } from '../../components/charts/BarChart'
 import { CategoryMedallion } from '../../components/ui/CategoryIcon'
 import { FullPageLoader } from '../../components/ui/Feedback'
 import { Countdown } from '../../components/ui/Countdown'
+import { votedInPhase } from '../../lib/categories'
 import { formatDate, formatDateTime, pct } from '../../lib/format'
 
 export function DashboardPage() {
@@ -28,10 +29,15 @@ export function DashboardPage() {
       .catch(() => {})
   }, [api])
   useEffect(() => {
+    // uma resposta atrasada de outra fase é ignorada (os líderes mostrados são sempre os da fase certa)
+    let current = true
     api.admin
       .results(livePhase)
-      .then(setLeaders)
+      .then((r) => current && setLeaders(r))
       .catch(() => {})
+    return () => {
+      current = false
+    }
   }, [api, livePhase, votersKey])
 
   if (!overview) return <FullPageLoader label="A carregar o painel…" />
@@ -61,6 +67,19 @@ export function DashboardPage() {
           <span className="flex-1">
             <strong>Empate no 1.º lugar</strong> em {o.winner_ties.length} {o.winner_ties.length === 1 ? 'categoria' : 'categorias'}. Escolham o vencedor de
             cada uma em Resultados (2ª fase). A gala e a publicação ficam bloqueadas até decidirem.
+          </span>
+          <ArrowRight className="h-4 w-4" />
+        </Link>
+      )}
+      {(o.secret_missing?.length ?? 0) > 0 && !s.results_published && (
+        <Link
+          to={path('/admin/categorias')}
+          className="mb-5 flex items-center gap-3 rounded-2xl border border-cvp-500/50 bg-cvp-500/15 p-4 text-sm text-red-50 transition hover:bg-cvp-500/25"
+        >
+          <AlertTriangle className="h-5 w-5 shrink-0 text-cvp-400" />
+          <span className="flex-1">
+            <strong>Falta o vencedor</strong> {o.secret_missing!.length === 1 ? 'de 1 prémio secreto' : `de ${o.secret_missing!.length} prémios secretos`}.
+            Escrevam-no em Categorias. A gala e a publicação ficam bloqueadas até lá.
           </span>
           <ArrowRight className="h-4 w-4" />
         </Link>
@@ -152,7 +171,7 @@ export function DashboardPage() {
         ) : (
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
             {categories
-              .filter((c) => c.active !== false)
+              .filter((c) => c.active !== false && votedInPhase(c, livePhase))
               .map((c) => {
                 const rows = leaders.filter((r) => r.category_id === c.id).sort((a, b) => b.votes - a.votes)
                 const top = rows[0]

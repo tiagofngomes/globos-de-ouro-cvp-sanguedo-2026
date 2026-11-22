@@ -1,11 +1,12 @@
-import { AlertTriangle, CheckCircle2, PartyPopper, RotateCcw, Star } from 'lucide-react'
+import { AlertTriangle, CheckCircle2, Lock, PartyPopper, RotateCcw, Star } from 'lucide-react'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useApi } from '../../api/ApiContext'
-import type { Category, ProposalRow, ResultRow } from '../../api/types'
+import type { Candidate, Category, ProposalRow, ResultRow } from '../../api/types'
 import { ResultsHidden } from '../../components/admin/ResultsHidden'
 import { AdminPageTitle, Panel, useAdmin } from '../../components/admin/AdminLayout'
 import { CategoryMedallion } from '../../components/ui/CategoryIcon'
 import { FullPageLoader, Spinner, useConfirm, useToast } from '../../components/ui/Feedback'
+import { byCategoryOrder, ELIGIBLE_MAX, ELIGIBLE_MIN, kindOf } from '../../lib/categories'
 import { cn } from '../../lib/cn'
 import { formatDateTime, plural } from '../../lib/format'
 
@@ -24,6 +25,7 @@ export function FinalistsPage() {
   const toast = useToast()
   const ask = useConfirm()
   const [categories, setCategories] = useState<Category[] | null>(null)
+  const [candidates, setCandidates] = useState<Candidate[]>([])
   const [proposal, setProposal] = useState<ProposalRow[]>([])
   const [current, setCurrent] = useState<ResultRow[]>([])
   const [selection, setSelection] = useState<Record<string, string[]>>({})
@@ -35,8 +37,10 @@ export function FinalistsPage() {
   const phase1Open = overview ? !overview.results_visible.phase1 && !confirmed : true
 
   const load = useCallback(async () => {
-    const [cats, prop] = await Promise.all([api.admin.listCategories(), api.admin.finalistProposal()])
-    setCategories(cats.filter((c) => c.active !== false))
+    const [cats, prop, cands] = await Promise.all([api.admin.listCategories(), api.admin.finalistProposal(), api.admin.listCandidates()])
+    // os prémios secretos não têm finalistas (não há votação)
+    setCategories(cats.filter((c) => c.active !== false && kindOf(c) !== 'secret').sort(byCategoryOrder))
+    setCandidates(cands)
     setProposal(prop)
     // recomendação: os mais votados acima do corte já vêm marcados; os empatados ficam para escolher
     const sel: Record<string, string[]> = {}
@@ -56,6 +60,12 @@ export function FinalistsPage() {
   }, [proposal])
 
   const tiedCats = categories?.filter((c) => (byCat[c.id] ?? []).some((p) => p.status === 'tied')) ?? []
+  const isPhase2Only = (c: Category) => kindOf(c) === 'phase2'
+  const nameOf = (id: string) => candidates.find((c) => c.id === id)?.name ?? '?'
+  const isActiveCand = (id: string) => candidates.some((c) => c.id === id && c.active)
+  /** "Apenas 2ª fase": passam as pessoas escolhidas em Categorias que continuam ativas */
+  const eligibleActive = (c: Category) => (c.eligible ?? []).filter(isActiveCand)
+  const countFor = (c: Category) => (isPhase2Only(c) ? eligibleActive(c).length : (selection[c.id]?.length ?? 0))
 
   const toggle = (cat: string, cand: string) => {
     const list = selection[cat] ?? []
@@ -84,11 +94,14 @@ export function FinalistsPage() {
 
   const approve = async () => {
     if (!categories || !overview) return
-    const noVotes = categories.find((c) => (byCat[c.id] ?? []).length === 0)
+    const noVotes = categories.find((c) => !isPhase2Only(c) && (byCat[c.id] ?? []).length === 0)
     if (noVotes) return toast(`A categoria “${noVotes.name}” não teve votos na 1ª fase. Desative-a em Categorias para poder aprovar.`, 'error')
-    const tooFew = categories.find((c) => (selection[c.id]?.length ?? 0) < minFor(c.id))
+    const tooFew = categories.find((c) => !isPhase2Only(c) && (selection[c.id]?.length ?? 0) < minFor(c.id))
     if (tooFew) return toast(`Selecione pelo menos ${minFor(tooFew.id)} finalistas em “${tooFew.name}”.`, 'error')
-    const total = categories.reduce((a, c) => a + (selection[c.id]?.length ?? 0), 0)
+    const badPhase2 = categories.find((c) => isPhase2Only(c) && (eligibleActive(c).length < ELIGIBLE_MIN || eligibleActive(c).length > ELIGIBLE_MAX))
+    if (badPhase2)
+      return toast(`A categoria “${badPhase2.name}” (apenas 2ª fase) precisa de ${ELIGIBLE_MIN} a ${ELIGIBLE_MAX} pessoas ativas. Escolham-nas em Categorias.`, 'error')
+    const total = categories.reduce((a, c) => a + countFor(c), 0)
     const opensAt = overview.settings.phase2_opens_at
     const opensNow = new Date(opensAt).getTime() <= new Date(overview.server_now).getTime()
     if (
@@ -98,11 +111,13 @@ export function FinalistsPage() {
           <div className="space-y-3">
             <ul className="space-y-1">
               {categories.map((c) => {
-                const k = selection[c.id]?.length ?? 0
+                const k = countFor(c)
                 return (
                   <li key={c.id} className="flex justify-between gap-3">
                     <span className="truncate">{c.name}</span>
-                    <span className={cn('shrink-0 tabular-nums', k === n ? 'text-gold-200' : 'text-amber-300')}>{plural(k, 'finalista', 'finalistas')}</span>
+                    <span className={cn('shrink-0 tabular-nums', k === n || isPhase2Only(c) ? 'text-gold-200' : 'text-amber-300')}>
+                      {plural(k, 'finalista', 'finalistas')}
+                    </span>
                   </li>
                 )
               })}
@@ -243,6 +258,7 @@ export function FinalistsPage() {
 
       <div className={cn('grid grid-cols-1 gap-4 xl:grid-cols-2', phase1Open && 'hidden')}>
         {categories.map((c) => {
+          if (isPhase2Only(c)) return <Phase2OnlyPanel key={c.id} c={c} ids={c.eligible ?? []} nameOf={nameOf} isActive={isActiveCand} />
           const list = byCat[c.id] ?? []
           const chosen = selection[c.id] ?? []
           const ok = list.length > 0 && chosen.length >= minFor(c.id) && chosen.length <= MAX_FINALISTS
@@ -292,6 +308,39 @@ export function FinalistsPage() {
         })}
       </div>
     </div>
+  )
+}
+
+/** Categoria "Apenas 2ª fase": os finalistas são as pessoas escolhidas em Categorias (não há votos da 1ª fase). */
+function Phase2OnlyPanel({ c, ids, nameOf, isActive }: { c: Category; ids: string[]; nameOf: (id: string) => string; isActive: (id: string) => boolean }) {
+  const active = ids.filter(isActive)
+  const inactive = ids.filter((id) => !isActive(id))
+  const ok = active.length >= ELIGIBLE_MIN && active.length <= ELIGIBLE_MAX
+  return (
+    <Panel title={<CatTitle c={c} />} actions={<span className={cn('text-xs tabular-nums', ok ? 'text-gold-300' : 'text-cvp-400')}>{active.length}</span>}>
+      <p className="mb-3 flex items-start gap-2 text-xs text-gold-100/55">
+        <Lock className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+        Apenas 2ª fase: passam as pessoas escolhidas em Categorias. Para mudar, editem a categoria antes de aprovar.
+      </p>
+      {!ok && (
+        <p className="mb-3 text-xs text-red-200">
+          Precisa de {ELIGIBLE_MIN} a {ELIGIBLE_MAX} pessoas ativas. Escolham-nas em <strong>Categorias</strong>.
+        </p>
+      )}
+      <ul className="space-y-1.5">
+        {active.map((id) => (
+          <li key={id} className="flex items-center gap-2 rounded-xl border border-gold-400/20 bg-gold-400/5 px-3 py-2 text-sm text-gold-50">
+            <Star className="h-3.5 w-3.5 fill-gold-400 text-gold-400" /> {nameOf(id)}
+          </li>
+        ))}
+        {inactive.map((id) => (
+          <li key={id} className="flex items-center gap-2 rounded-xl border border-white/5 px-3 py-2 text-sm text-gold-50/40 line-through">
+            {nameOf(id)}
+            <span className="ml-auto text-[10px] uppercase text-cvp-400 no-underline">desativado</span>
+          </li>
+        ))}
+      </ul>
+    </Panel>
   )
 }
 
