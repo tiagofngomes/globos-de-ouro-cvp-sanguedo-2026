@@ -4,15 +4,19 @@ import { HashRouter, Navigate, Route, Routes, useLocation } from 'react-router-d
 import { ApiProvider } from './api/ApiContext'
 import { isSupabaseConfigured } from './api/supabaseApi'
 import { PublicLayout } from './components/layout/PublicLayout'
+import { ErrorBoundary } from './components/ui/ErrorBoundary'
 import { ConfirmProvider, FullPageLoader, ToastProvider } from './components/ui/Feedback'
+import { importWithReload } from './lib/staleVersion'
 import { HomePage } from './pages/HomePage'
 import { VotePage } from './pages/VotePage'
 import { ResultsPage } from './pages/ResultsPage'
 
 // A área de administração e o Modo Gala só são descarregados quando usados
 // (a maioria das pessoas vota no telemóvel e não precisa deste código).
-const AdminArea = lazy(() => import('./pages/admin/AdminArea'))
-const GalaArea = lazy(() => import('./pages/admin/AdminArea').then((m) => ({ default: m.GalaArea })))
+// Se o site tiver sido atualizado entretanto, estes ficheiros podem já não existir:
+// a página recarrega sozinha (uma vez) para usar a versão nova.
+const AdminArea = lazy(importWithReload(() => import('./pages/admin/AdminArea')))
+const GalaArea = lazy(importWithReload(() => import('./pages/admin/AdminArea').then((m) => ({ default: m.GalaArea }))))
 
 function Lazy({ children }: { children: ReactNode }) {
   return <Suspense fallback={<FullPageLoader />}>{children}</Suspense>
@@ -60,35 +64,37 @@ function ModeRoutes() {
 
 export default function App() {
   return (
-    <ToastProvider>
-      <ConfirmProvider>
-        <HashRouter>
-          <RouteEffects />
-          <Routes>
-            <Route
-              path="/demo/*"
-              element={
-                <ApiProvider mode="demo">
-                  <ModeRoutes />
-                </ApiProvider>
-              }
-            />
-            <Route
-              path="/*"
-              element={
-                isSupabaseConfigured ? (
-                  <ApiProvider mode="live">
+    <ErrorBoundary>
+      <ToastProvider>
+        <ConfirmProvider>
+          <HashRouter>
+            <RouteEffects />
+            <Routes>
+              <Route
+                path="/demo/*"
+                element={
+                  <ApiProvider mode="demo">
                     <ModeRoutes />
                   </ApiProvider>
-                ) : (
-                  // Sem Supabase configurado, só a demonstração está disponível.
-                  <Navigate to="/demo" replace />
-                )
-              }
-            />
-          </Routes>
-        </HashRouter>
-      </ConfirmProvider>
-    </ToastProvider>
+                }
+              />
+              <Route
+                path="/*"
+                element={
+                  isSupabaseConfigured ? (
+                    <ApiProvider mode="live">
+                      <ModeRoutes />
+                    </ApiProvider>
+                  ) : (
+                    // Sem Supabase configurado, só a demonstração está disponível.
+                    <Navigate to="/demo" replace />
+                  )
+                }
+              />
+            </Routes>
+          </HashRouter>
+        </ConfirmProvider>
+      </ToastProvider>
+    </ErrorBoundary>
   )
 }

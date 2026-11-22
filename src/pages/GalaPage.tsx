@@ -12,7 +12,7 @@ import { Trophy } from '../components/ui/Trophy'
 import { celebrate } from '../lib/celebrate'
 import { cn } from '../lib/cn'
 import { formatPct, initials, pct, plural } from '../lib/format'
-import { crash, drumroll, fanfare } from '../lib/galaSound'
+import { crash, drumroll, fanfare, stopAllSounds } from '../lib/galaSound'
 
 interface CategoryShow {
   category: Category
@@ -31,8 +31,6 @@ type Slide =
 
 /** Duração do gráfico "a brincar" antes de parar nos valores reais. */
 const TEASE_MS = 7500
-/** Tempo com o gráfico parado (vencedor destacado) antes do nome em grande. */
-const HOLD_MS = 3000
 
 /**
  * MODO GALA — apresentação em ecrã completo para a cerimónia final.
@@ -134,20 +132,26 @@ export function GalaPage() {
 
   const slide = slides[i]
   const next = useCallback(() => setI((x) => Math.min(slides.length - 1, x + 1)), [slides.length])
-  // avança só se ainda estivermos no slide indicado (evita saltos se o apresentador já avançou)
-  const advanceFrom = useCallback((from: number) => setI((x) => (x === from ? Math.min(slides.length - 1, x + 1) : x)), [slides.length])
   const prev = useCallback(() => setI((x) => Math.max(0, x - 1)), [])
 
   // ---------------------------------------------------- efeitos por slide --
+  // nenhum ecrã avança sozinho: quem apresenta passa com a seta ou o comando.
+  // Ao mudar de ecrã, o som do ecrã anterior para logo (nunca há sons por cima de sons).
   useEffect(() => {
+    stopAllSounds()
     if (!slide) return
+    let timer = 0
     if (slide.kind === 'winner') {
       if (sound) fanfare()
       celebrate('grand')
     }
-    if (slide.kind === 'finale') setTimeout(() => celebrate('grand'), 500)
+    if (slide.kind === 'finale') timer = window.setTimeout(() => celebrate('grand'), 500)
+    return () => window.clearTimeout(timer)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [i])
+
+  // ao sair da gala, nada fica a tocar
+  useEffect(() => () => stopAllSounds(), [])
 
   // ------------------------------------------------------------ controlo --
   const toggleFs = useCallback(() => {
@@ -246,7 +250,7 @@ export function GalaPage() {
           {slide?.kind === 'intro' && <IntroSlide />}
           {slide?.kind === 'category' && show && <CategorySlide show={show} index={slide.ci} total={shows.length} />}
           {slide?.kind === 'nominees' && show && <NomineesSlide show={show} />}
-          {slide?.kind === 'race' && show && <RaceSlide show={show} sound={sound} onDone={() => advanceFrom(i)} />}
+          {slide?.kind === 'race' && show && <RaceSlide show={show} sound={sound} />}
           {slide?.kind === 'winner' && show && <WinnerSlide show={show} />}
           {slide?.kind === 'finale' && <FinaleSlide shows={shows} />}
           {shows.length === 0 && <p className="text-gold-100/60">Sem dados para apresentar.</p>}
@@ -429,13 +433,11 @@ function NomineesSlide({ show }: { show: CategoryShow }) {
  * ir ganhar a certa altura, cada vez mais depressa. Pouco antes do fim ficam
  * todas iguais (silêncio)… e, com o prato, param nos valores reais e o vencedor brilha.
  */
-function RaceSlide({ show, sound, onDone }: { show: CategoryShow; sound: boolean; onDone: () => void }) {
+function RaceSlide({ show, sound }: { show: CategoryShow; sound: boolean }) {
   const nominees = show.nominees
   const maxVotes = Math.max(0, ...nominees.map((r) => r.votes))
   const [heights, setHeights] = useState<number[]>(() => nominees.map(() => 6))
   const [settled, setSettled] = useState(false)
-  const doneRef = useRef(onDone)
-  doneRef.current = onDone
 
   useEffect(() => {
     const timers: number[] = []
@@ -468,8 +470,11 @@ function RaceSlide({ show, sound, onDone }: { show: CategoryShow; sound: boolean
       setSettled(true)
       if (sound) crash()
     })
-    at(TEASE_MS + HOLD_MS, () => doneRef.current())
-    return () => timers.forEach((id) => window.clearTimeout(id))
+    // fica parado nos valores reais até o apresentador avançar
+    return () => {
+      timers.forEach((id) => window.clearTimeout(id))
+      stopAllSounds()
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 

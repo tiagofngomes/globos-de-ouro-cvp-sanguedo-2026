@@ -13,6 +13,42 @@ function audio(): AudioContext | null {
   }
 }
 
+/**
+ * Todos os sons passam por este "canal" comum. Ao mudar de ecrã cortamos o canal
+ * inteiro: o que estava a tocar cala-se e o que estava agendado (o rufar) já não
+ * se ouve. Os sons seguintes usam um canal novo.
+ */
+let bus: GainNode | null = null
+function out(a: AudioContext): GainNode {
+  if (!bus) {
+    bus = a.createGain()
+    bus.connect(a.destination)
+  }
+  return bus
+}
+
+/** Cala de imediato todos os sons da gala (a tocar ou agendados). */
+export function stopAllSounds() {
+  const old = bus
+  bus = null
+  if (!old || !ctx) return
+  try {
+    const t = ctx.currentTime
+    old.gain.cancelScheduledValues(t)
+    old.gain.setValueAtTime(old.gain.value, t)
+    old.gain.linearRampToValueAtTime(0, t + 0.04) // fade muito curto, sem estalido
+    window.setTimeout(() => {
+      try {
+        old.disconnect()
+      } catch {
+        /* já desligado */
+      }
+    }, 80)
+  } catch {
+    /* sem som, mas o espetáculo continua */
+  }
+}
+
 function noiseBuffer(a: AudioContext) {
   const buf = a.createBuffer(1, a.sampleRate * 0.12, a.sampleRate)
   const data = buf.getChannelData(0)
@@ -37,7 +73,7 @@ function drumrollImpl(seconds = 3) {
     filter.Q.value = 0.8
     const gain = a.createGain()
     gain.gain.value = 0.08 + (i / hits) * 0.35
-    src.connect(filter).connect(gain).connect(a.destination)
+    src.connect(filter).connect(gain).connect(out(a))
     src.start(t)
   }
 }
@@ -64,7 +100,7 @@ function fanfareImpl() {
       g.gain.linearRampToValueAtTime(level, start + i * 0.02 + 0.05)
       g.gain.setValueAtTime(level, end - 0.25)
       g.gain.exponentialRampToValueAtTime(0.0001, end)
-      o.connect(lp).connect(g).connect(a.destination)
+      o.connect(lp).connect(g).connect(out(a))
       o.start(start + i * 0.02)
       o.stop(end + 0.05)
     })
@@ -83,7 +119,7 @@ function crashImpl() {
   const master = a.createGain()
   master.gain.value = 0.7
   const comp = a.createDynamicsCompressor()
-  master.connect(comp).connect(a.destination)
+  master.connect(comp).connect(out(a))
 
   // 1) prato: ruído brilhante em estéreo, com cauda longa
   const len = Math.floor(a.sampleRate * 3)
