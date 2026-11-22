@@ -729,7 +729,8 @@ end
 $$;
 
 -- Aprovação dos finalistas pelos administradores (a única forma de abrir a 2ª fase).
--- Cada categoria ativa tem de ter entre 2 e 8 finalistas.
+-- Cada categoria ativa tem de ter entre 2 e 8 finalistas (ou 1, se só uma pessoa
+-- teve votos nessa categoria). Uma categoria sem votos tem de ser desativada.
 -- p_selection: { "<category_id>": ["<candidate_id>", ...], ... }
 create or replace function public.admin_set_finalists(p_selection jsonb)
 returns jsonb
@@ -739,7 +740,8 @@ set search_path = public
 as $$
 declare
   k record;
-  v_missing integer;
+  v_voted integer;
+  v_sel integer;
 begin
   perform public.assert_admin();
   if now() <= (select phase1_closes_at from public.event_settings where id) then
@@ -749,13 +751,18 @@ begin
     return jsonb_build_object('ok', false, 'error', 'A 2ª fase já tem votos: não é possível alterar os finalistas.');
   end if;
 
-  select count(*) into v_missing from public.categories c
-   where c.active
-     and (select count(distinct x.value) from jsonb_array_elements_text(coalesce(p_selection -> c.id::text, '[]'::jsonb)) as x(value))
-         not between 2 and 8;
-  if v_missing > 0 then
-    return jsonb_build_object('ok', false, 'error', 'Cada categoria tem de ter entre 2 e 8 finalistas.');
-  end if;
+  for k in select c.id, c.name from public.categories c where c.active order by c.sort_order loop
+    select count(*) into v_voted from public.vote_tallies t where t.phase = 1 and t.category_id = k.id and t.votes > 0;
+    select count(distinct x.value) into v_sel
+      from jsonb_array_elements_text(coalesce(p_selection -> k.id::text, '[]'::jsonb)) as x(value);
+    if v_voted = 0 then
+      return jsonb_build_object('ok', false, 'error',
+        format('A categoria "%s" não teve votos na 1ª fase. Desative-a em Categorias para poder aprovar.', k.name));
+    end if;
+    if v_sel < least(2, v_voted) or v_sel > 8 then
+      return jsonb_build_object('ok', false, 'error', 'Cada categoria tem de ter entre 2 e 8 finalistas.');
+    end if;
+  end loop;
 
   delete from public.finalists where true; -- "where" obrigatório no Supabase (safeupdate)
   for k in select c.id from public.categories c where c.active loop

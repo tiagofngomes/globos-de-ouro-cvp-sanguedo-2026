@@ -400,8 +400,11 @@ export function createDemoApi(): VotingApi {
         await delay(300)
         if (hasPhase2Votes()) return { ok: false, error: 'A 2ª fase já tem votos: não é possível alterar os finalistas.' }
         if (state.phase === 'phase1' || state.phase === 'pre_voting') return { ok: false, error: 'A 1ª fase ainda está aberta.' }
-        if (activeCategories().some((c) => new Set(selection[c.id] ?? []).size < 2 || new Set(selection[c.id] ?? []).size > 8)) {
-          return { ok: false, error: 'Cada categoria tem de ter entre 2 e 8 finalistas.' }
+        for (const c of activeCategories()) {
+          const voted = state.candidates.filter((x) => (state.tallies[`1|${c.id}|${x.id}`] ?? 0) > 0).length
+          const sel = new Set(selection[c.id] ?? []).size
+          if (voted === 0) return { ok: false, error: `A categoria "${c.name}" não teve votos na 1ª fase. Desative-a em Categorias para poder aprovar.` }
+          if (sel < Math.min(2, voted) || sel > 8) return { ok: false, error: 'Cada categoria tem de ter entre 2 e 8 finalistas.' }
         }
         state.finalists = selection
         state.settings.finalists_confirmed = true

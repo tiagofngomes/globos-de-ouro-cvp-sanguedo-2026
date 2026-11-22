@@ -435,5 +435,28 @@ s = await val(`select public.start_voting_session('1020')`)
 const per = (c) => s.finalists.filter((f) => f.category_id === c).length
 ok(s.ok === true && per(c0) === 3 && per(c1) === 2 && per(cats[2]) === 7 && per(cats[3]) === 5, 'na 2ª fase aparecem exatamente os aprovados (3, 2, 7, 5)')
 
+// ---- casos raros: categoria em que só 1 pessoa teve votos, ou nenhuma
+await asUser(adminId)
+r = await val(`select public.admin_reset_finalists()`)
+ok(r.ok === true, 'finalistas repostos para os casos raros')
+await asSuper()
+const cx = await val(`insert into public.categories (slug, name, sort_order) values ('teste-raro', 'Prémio Teste Raro', 99) returning id`)
+await db.query(`insert into public.vote_tallies values (1, $1, $2, 4)`, [cx, cands[0].id])
+await asUser(adminId)
+const selRare = { ...sel3, [cx]: [cands[0].id] }
+r = await val(`select public.admin_set_finalists($1::jsonb)`, [JSON.stringify(selRare)])
+ok(r.ok === true, 'categoria em que só 1 pessoa teve votos: aprova com 1 finalista')
+r = await val(`select public.admin_reset_finalists()`)
+await asSuper()
+await db.query(`delete from public.vote_tallies where category_id = $1`, [cx])
+await asUser(adminId)
+r = await val(`select public.admin_set_finalists($1::jsonb)`, [JSON.stringify({ ...sel3, [cx]: [] })])
+ok(r.ok === false && /não teve votos/.test(r.error), 'categoria sem votos: pede para a desativar')
+await asSuper()
+await db.query(`update public.categories set active = false where id = $1`, [cx])
+await asUser(adminId)
+r = await val(`select public.admin_set_finalists($1::jsonb)`, [JSON.stringify(sel3)])
+ok(r.ok === true, 'depois de desativar a categoria sem votos, aprova normalmente')
+
 console.log(failures ? `\n${failures} FALHA(S)` : '\nTodos os testes passaram.')
 process.exit(failures ? 1 : 0)

@@ -79,10 +79,15 @@ export function FinalistsPage() {
     await reload()
   }
 
+  // mínimo de 2, ou de 1 se só uma pessoa teve votos nessa categoria
+  const minFor = (catId: string) => Math.min(MIN_FINALISTS, (byCat[catId] ?? []).length)
+
   const approve = async () => {
     if (!categories || !overview) return
-    const tooFew = categories.find((c) => (selection[c.id]?.length ?? 0) < MIN_FINALISTS)
-    if (tooFew) return toast(`Selecione pelo menos ${MIN_FINALISTS} finalistas em “${tooFew.name}”.`, 'error')
+    const noVotes = categories.find((c) => (byCat[c.id] ?? []).length === 0)
+    if (noVotes) return toast(`A categoria “${noVotes.name}” não teve votos na 1ª fase. Desative-a em Categorias para poder aprovar.`, 'error')
+    const tooFew = categories.find((c) => (selection[c.id]?.length ?? 0) < minFor(c.id))
+    if (tooFew) return toast(`Selecione pelo menos ${minFor(tooFew.id)} finalistas em “${tooFew.name}”.`, 'error')
     const total = categories.reduce((a, c) => a + (selection[c.id]?.length ?? 0), 0)
     const opensAt = overview.settings.phase2_opens_at
     const opensNow = new Date(opensAt).getTime() <= new Date(overview.server_now).getTime()
@@ -222,8 +227,9 @@ export function FinalistsPage() {
         <div className="mb-4 flex items-start gap-3 rounded-2xl border border-cvp-500/50 bg-cvp-500/15 p-4 text-sm text-red-50">
           <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0 text-cvp-400" />
           <span>
-            <strong>Empate na última vaga</strong> em {plural(tiedCats.length, 'categoria', 'categorias')}. Escolham quem passa nas categorias assinaladas a
-            vermelho e depois aprovem os finalistas.
+            <strong>Empate na última vaga</strong> em {plural(tiedCats.length, 'categoria', 'categorias')}. Nas pessoas com a etiqueta{' '}
+            <span className="rounded-full bg-cvp-500/30 px-1.5 py-0.5 text-[10px] uppercase">empate</span>, escolham quem passa (de {MIN_FINALISTS} a{' '}
+            {MAX_FINALISTS} por categoria) e depois aprovem os finalistas.
           </span>
         </div>
       ) : (
@@ -238,14 +244,12 @@ export function FinalistsPage() {
       <div className={cn('grid grid-cols-1 gap-4 xl:grid-cols-2', phase1Open && 'hidden')}>
         {categories.map((c) => {
           const list = byCat[c.id] ?? []
-          const hasTie = list.some((p) => p.status === 'tied')
           const chosen = selection[c.id] ?? []
-          const ok = chosen.length >= MIN_FINALISTS && chosen.length <= MAX_FINALISTS
+          const ok = list.length > 0 && chosen.length >= minFor(c.id) && chosen.length <= MAX_FINALISTS
           return (
             <Panel
               key={c.id}
               title={<CatTitle c={c} />}
-              className={cn(hasTie && 'ring-1 ring-cvp-500/60')}
               actions={
                 <span
                   className={cn('text-xs tabular-nums', !ok ? 'text-cvp-400' : chosen.length === n ? 'text-gold-300' : 'text-amber-300')}
@@ -255,13 +259,13 @@ export function FinalistsPage() {
                 </span>
               }
             >
-              {hasTie && (
-                <p className="mb-3 flex items-start gap-2 rounded-xl bg-cvp-500/15 p-3 text-xs text-red-100">
-                  <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-cvp-400" />
-                  Empate na última vaga. Escolha quem passa à 2ª fase (máximo {MAX_FINALISTS} por categoria).
+              {list.length === 0 && (
+                <p className="text-sm text-gold-100/60">
+                  Esta categoria não teve votos na 1ª fase. Desative-a em <strong className="text-gold-100">Categorias</strong> para poder aprovar os
+                  finalistas.
                 </p>
               )}
-              {list.length === 0 && <p className="text-sm text-gold-100/40">Sem votos nesta categoria.</p>}
+              {list.length === 1 && <p className="mb-3 text-xs text-gold-100/55">Só uma pessoa teve votos nesta categoria: pode passar sozinha à 2ª fase.</p>}
               <ul className="space-y-1.5">
                 {list.slice(0, Math.max(n + 6, list.filter((p) => p.status !== 'out').length)).map((p) => {
                   const on = chosen.includes(p.candidate_id)
@@ -271,7 +275,6 @@ export function FinalistsPage() {
                         className={cn(
                           'flex cursor-pointer items-center gap-3 rounded-xl border px-3 py-2 text-sm transition',
                           on ? 'border-gold-400/50 bg-gold-400/10 text-gold-50' : 'border-white/5 text-gold-50/60 hover:border-gold-400/25',
-                          p.status === 'tied' && !on && 'border-cvp-500/40',
                         )}
                       >
                         <input type="checkbox" checked={on} onChange={() => toggle(c.id, p.candidate_id)} className="h-4 w-4 accent-[#e3b53a]" />
