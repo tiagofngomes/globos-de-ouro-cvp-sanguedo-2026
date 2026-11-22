@@ -405,8 +405,8 @@ function CategorySlide({ show, index, total }: { show: CategoryShow; index: numb
           {show.secret ? 'Prémio especial' : `Categoria ${index + 1} de ${total}`}
         </motion.div>
         <motion.h2
-          initial={{ opacity: 0, y: 30, letterSpacing: '0.2em' }}
-          animate={{ opacity: 1, y: 0, letterSpacing: '0.01em' }}
+          initial={{ opacity: 0, y: 30 }}
+          animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.45, duration: 1.2, ease }}
           className="text-gold mt-[2vh] font-display text-[length:min(5.8vw,10vh)] font-bold leading-[1.05]"
         >
